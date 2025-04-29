@@ -238,7 +238,7 @@ loop:
   
   li a2, 0xffffc004  //check for terminal input
   nop
-  lw a4, 0(a2)
+  lb a4, 0(a2)
   slli a4, a4, 2
   jalr zero, a4, 0x314
     
@@ -330,7 +330,7 @@ loop:
     nop //]
     nop //^
     nop //_
-    j 0x000 //` --grave accent, use as backspace
+    j 0xfc8 //` --grave accent, use as backspace
     j 0x5a0 //a
     j 0x608 //b
     j 0x668 //c
@@ -1205,11 +1205,35 @@ ret
   nop
   
   //delete letter
-  li t6, 1
-  sub sp, sp, t6 //decrement stack pointer
-  lb t6, 0(sp) //load character from stack
-  //
-
+  addi t6, zero, 1
+  sub sp, t6, sp //decrement stack pointer
+  lw t6, 0(sp) //load character from stack
+  sb zero, 0(sp)
+  slli t5, t6, 2
+  li t5, 0xfc8
+  add t6, t6, t5
+  add t5, zero, zero
+  //jalr zero, t6, 0
+  ret
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
   
   
   
