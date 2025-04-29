@@ -95,7 +95,7 @@ __start:
 _start:
 
 loop:
-    li   s3, SERIAL_PORT_BASE           // load base address of serial port
+    
 
 //todo list: 
  // add notification if you are trying to write with the colours too close to black
@@ -142,15 +142,15 @@ loop:
 
     nop
     nop
-    nop
-        //start writing to screen
+    nop 
+    //start writing to screen        
     li s1, LCD_FB_START //s7 is the cursor position
     li s2, LCD_FB_START //s8 is the address of the pixel being written to
-    li t0, SPILED_REG_KNOBS_8BIT //load RGB values into ra
+    li s3, SERIAL_PORT_BASE // load base address of serial port
     
     colour_calc:    
     
-
+    li t0, SPILED_REG_KNOBS_8BIT //load RGB values into ra
     //clear registers
 
     add t1, zero, zero
@@ -179,21 +179,59 @@ loop:
     add t1, zero, t3
     add t6, zero, zero
 
-    call 0x304
+    call edge_case_handler_2
     jal zero, colour_calc
     
+    
+    
+    
+    //currently set to stop on error values, commented instructions are for automatically fixing the values
+    edge_case_handler_1: //if the stack pointer is lower then it is supposed to be, this is expected behavior when sending delete chr command with no text so it is kept as auto-fix
+    
+    li t0, 0xbfffff00
+    bgt sp, t0, edge_case_handler_2
+    add sp, t0, zero
+    add a0, zero, zero
+    jal zero, edge_case_handler_2
+    nop
+    nop
+    nop
+    text_1: .asciz  "cursor overflow error\n"    // store zero terminated ASCII text
+    nop
+    nop
+    edge_case_handler_2: 
+    li t2, LCD_FB_START
+    beq t2, s1, edge_case_handler_end
+    blt s1, t2, edge_case_handler_end
+    la   a1, text_1 // load address of text
+    call serial_write
+    add a1, zero, zero
+    jal zero, edge_case_handler_end
+    edge_case_handler_end:
+    jal zero, input_check
     nop
     nop
     nop
     nop
     nop
     nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
+    
+    serial_write:
+    li   a0, SERIAL_PORT_BASE           // load base address of serial port
+next_char:
+    lb   t1, 0(a1)                      // load one byte after another
+    beq  t1, zero, end_char             // is this the terminal zero byte
+    addi a1, a1, 1                      // move pointer to next text byte
+tx_busy:
+    lw   t0, SERP_TX_ST_REG_o(a0)       // read status of transmitter
+    andi t0, t0, SERP_TX_ST_REG_READY_m // mask ready bit
+    beq  t0, zero, tx_busy              // if not ready wait for ready condition
+    sw   t1, SERP_TX_DATA_REG_o(a0)     // write byte to Tx data register
+    jal  zero, next_char                // unconditional branch to process next byte
+    end_char:
+    ret
+    
+    
     nop
     nop
     nop
@@ -228,7 +266,8 @@ loop:
 
     
   //  sw t1, 0(s6)  //test to see if RGB calcs working 
-    nop
+input_check:
+    
     lb a0, 0(s3) //check for input
     beq a0, zero, colour_calc  //if there is no new inputs, return
   
@@ -1226,7 +1265,7 @@ ret
   addi s1, s1, 8
   ret
   
-    nop //free space for future edits 
+  nop //free space for future edits 
   nop
   nop
   nop
@@ -1253,105 +1292,107 @@ ret
     slli a4, a4, 2
     li t2, chr_del_enc // 0x00000fc8
     add a4, a4, t2
-    nop//add a4, zero, zero
+    //  nop//add a4, zero, zero
     jalr zero, a4, 0
-    jal zero, colour_calc //  ret
+    
     chr_del_enc:
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
+    jal zero, colour_calc //  ret
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
+    ebreak
     jal zero, dec_eight_wide //space
-    jal zero, dec_eight_wide//this nop shouldn't have to be here, find out why it needs to be here
-    nop //!
-    nop //"
-    nop //#
-    nop //$
-    nop //%
-    nop //&
-    nop //' --apostraphe
-    nop //(
-    nop //)
-    nop //*
-    nop //+
-    nop //,
-    nop //-
-    nop //.
-    nop ///
-    nop //0
-    nop //1
-    nop //2
-    nop //3
-    nop //4
-    nop //5
-    nop //6
-    nop //7
-    nop //8
-    nop //9
-    nop //:
-    nop //; --semicolon, use as enter/newline
-    nop //<
-    nop //=
-    nop //>
-    nop //?
-    nop //@
-    nop //A
-    nop //B
-    nop //C
-    nop //D
-    nop //E
-    nop //F
+    ebreak//this nop shouldn't have to be here, find out why it needs to be here
+    ebreak //! //sometimesjumps here
+    ebreak //"
+    ebreak //#
+    ebreak //$
+    ebreak //%
+    ebreak //&
+    ebreak //' --apostraphe
+    ebreak //(
+    ebreak //)
+    ebreak //*
+    ebreak //+
+    ebreak //,
+    ebreak //-
+    ebreak //.
+    ebreak ///
+    ebreak //0
+    ebreak //1
+    ebreak //2
+    ebreak //3
+    ebreak //4
+    ebreak //5
+    ebreak //6
+    ebreak //7
+    ebreak //8
+    ebreak //9
+    ebreak //:
+    ebreak //; --semicolon, use as enter/newline
+    ebreak //<
+    ebreak //=
+    ebreak //>
+    ebreak //?
+    ebreak //@
+    ebreak //A
+    ebreak //B
+    ebreak //C
+    ebreak //D
+    ebreak //E
+    ebreak //F
     ebreak //G
-    nop //H
-    nop //I
-    nop //J
-    nop //K
-    nop //L
-    nop //M
-    nop //N
-    nop //O
-    nop //P
-    nop //Q
-    ecall //R
-    nop //S
-    nop //T
+    ebreak //H
+    ebreak //I
+    ebreak //J
+    ebreak //K
+    ebreak //L
+    ebreak //M
+    ebreak //N
+    ebreak //O
+    ebreak //P
+    ebreak //Q
+    ebreak //R
+    ebreak //S
+    ebreak //T
     ebreak //U
-    nop //V
-    ecall //W
+    ebreak //V
+    ebreak //W
     ebreak //X
-    ecall //Y
+    ebreak //Y
     ebreak //Z
-    ecall //[
-    nop //\
+    ebreak //[
+    ebreak //\
     ebreak //]
-    nop //^
-    nop //_
+    ebreak //^
+    ebreak //_
     ecall//` --grave accent, use as backspace
     jal zero, dec_eight_wide //a
     jal zero, dec_eight_wide //b
@@ -1369,7 +1410,7 @@ ret
     jal zero, dec_twelve_wide//n
     jal zero, dec_ten_wide//o
     jal zero, dec_eight_wide//p
-    jal zero, dec_twelve_wide//q
+    ebreak //jal zero, dec_twelve_wide//q
     jal zero, dec_eight_wide//r
     jal zero, dec_eight_wide//s
     jal zero, dec_eight_wide//t
@@ -1485,9 +1526,8 @@ clr_two_at_chr_pointer_plus_2_px:
 .org 0x400
 .data
 
-data_1:	.word	1, 2, 3, 4	// example how to fill data words
 
-text_1: .asciz  "Hello world.\n"    // store zero terminated ASCII text
+
 
 // if whole source compile is OK the switch to core tab
 #pragma qtrvsim tab core
