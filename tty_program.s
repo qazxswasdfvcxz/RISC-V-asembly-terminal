@@ -1367,8 +1367,9 @@ ret
     ebreak
     ebreak
     ebreak
+    ebreak
+    ebreak
     jal zero, dec_eight_wide //space
-    ebreak//this nop shouldn't have to be here, find out why it needs to be here
     ebreak //! //sometimesjumps here
     ebreak //"
     ebreak //#
@@ -1395,7 +1396,7 @@ ret
     ebreak //8
     ebreak //9
     ebreak //:
-    ebreak //; --semicolon, use as enter/newline
+    jal zero, del_newline //; --semicolon, use as enter/newline
     ebreak //<
     ebreak //=
     ebreak //>
@@ -1432,7 +1433,7 @@ ret
     ebreak //]
     ebreak //^
     ret //_
-    ebreak//` --grave accent, use as backspace
+ //   ebreak//` --grave accent, use as backspace
     jal zero, dec_eight_wide //a
     jal zero, dec_eight_wide //b
     jal zero, dec_eight_wide //c
@@ -1557,6 +1558,26 @@ clr_two_at_chr_pointer_plus_2_px:
   
   
   
+  
+  del_newline:
+  
+    li t3, newline_stack_pointer
+  lh t4, 0(t3) //load the adress for the newline stack
+  
+
+  li t6, 0x2
+  sub t4, t4, t6 //decrement newline stack
+  lh t5, 0(t4) //pop from the newline stack
+  
+  srli t1, s1, 16
+  slli t1, t1, 16
+  
+  add s1, t1, t5
+  sh zero, 0(t4) //zero stack (reordered away from the newline stack adress load to reduce pipeline stalls
+  sh t4, 0(t3)  //store newline stack pointer back
+  
+  ret
+
   
 
     ebreak // stop continuous execution, request developer interaction
