@@ -99,17 +99,15 @@ loop:
 
 // todo list: 
 
-// stop RGB values being recalculated when it is not neccacary
-// BONUS POINTS: only recalculate the colour values that changed instead of all of 
-// them
+
 
 
 // current WIP (currently not breaking code/causing issues)
 
-// add the rest of the letters and backspace, next line, etc.
+// add the rest of the letters and backspace, next line, etc. ---- alphabet, 
+// backspace and newline are done
 
-// add notification if you have text colour too close to black ---- currently only
-// activates on pure black, currently spams terminal with warnings
+
 
 // started reallocating registers to allign with how they are supposed to be used
 // ---- most registers reallocated, still need to look ffor ones I missed
@@ -129,7 +127,9 @@ loop:
 
 // store the written text for later use for shell commands, ETC
 
-// optimise how the letters are found (instead of doing a BEQ of every letter, perhaps a JALR of the letter value to go to another jump that goes to the letter print function, this will stop the nested if:else loops and make all letters have the same processing latency
+// optimise how the letters are found (instead of doing a BEQ of every letter, perhaps a JALR of 
+// the letter value to go to another jump that goes to the letter print function, this will stop
+// the nested if:else loops and make all letters have the same processing latency
 
 // fix occasional crash when deleting spaces, fix some letters not being cleared correctly when being
 // deleted ---- same bug, the chr_del_enc was misaligned (EG: it thoight it was deleting a H when it
@@ -138,13 +138,17 @@ loop:
 // use more indirect jumps to decrease the amount of painful recalculation (see
 // code to delete characters)
 
-//added some error detection (see edge_case_handler_1, 2, etc)
+// added some error detection (see edge_case_handler_1, 2, etc)
 
+// added manual bitmasking for the colour calcs. much slower, but makes it easier to swap to only 
+// recalculating the colour values that changed instead of all of them
 
+// stop RGB values being recalculated when it is not neccacary
+// BONUS POINTS: only recalculate the colour values that changed instead of all of 
+// them ---- did not get bonus points :(
 
-
-
-
+// add notification if you have text colour too close to black ---- currently only
+// activates on pure black, currently spams terminal with warnings ----FIXED & FULLY implemted
 
 
 
@@ -158,37 +162,92 @@ loop:
     li s2, LCD_FB_START //s8 is the address of the pixel being written to
     li s3, SERIAL_PORT_BASE // load base address of serial port
     
+    addi t6, zero, 0x1
+    
     colour_calc:    
     
-    li t0, SPILED_REG_KNOBS_8BIT //load RGB values into ra
-    //clear registers
+    //li t0, SPILED_REG_KNOBS_8BIT //load RGB values into ra
+  //  add t0, zero, zero//clear registers
 
-    add t1, zero, zero
     
 
     //get RGB value
     li t4, SPILED_REG_KNOBS_8BIT //load RGB values
-    lbu gp, 2(t4)
-    lbu tp, 1(t4)
-    lbu t0, 0(t4)  //todo: stop it from recalculating RGB values when there is no need 
     
-    srli gp, gp, 3 //divide RGB values by 2
-    srli tp, tp, 2
-    srli t0, t0, 3
+    lbu t1, 0(t4) //blue
+    lbu t2, 1(t4) //green
+    lbu t3, 2(t4) //red
+    
+    add t5, t1, t2 //
+    add t6, t5, t3
+
+    bne s6, t6, colour_merge
+    
+    
+    call edge_case_handler_1
+    
+    
+    colour_merge:
+    
+    
+    add s6, t6, zero
+    
+    
+    
+    blue_calc:
+    
+    
+    
+    not t5, zero //bit mask blue value
+    srli t5, t5, 3
+    not t5, t5
+    and t0, t0, t5
         
-    add t1, t1, t0 //merge RGB values into bottom half of 1 register (T1 register is RGB value)
-    slli tp, tp, 5
-    add t1, t1, tp
-    slli gp, gp, 11
-    add t1, t1, gp  
+    srli t1, t1, 3
+    or t0, t0, t1 //merge RGB values into bottom half of 1 register (T1 register is RGB value)
+    
+    
+    
+    
+    green_calc:
+    
+    
+    not t5, zero
+    srli t5, t5, 2
+    slli t5, t5, 5
+    not t5, t5
+    and t0, t0, t5
+    
+
+    srli t2, t2, 2
+    slli t2, t2, 5
+    add t0, t0, t2
+    
+    
+    
+    red_calc:
+    
+    not t5, zero
+    srai t5, t5, 3 //divide RGB values by 2
+   slli t5, t5, 11
+    not t5, t5
+    
+       
+    srli t3, t3, 3 //divide RGB values by 2
+    slli t3, t3, 11
+    add t0, t0, t3  
+    
+    
     
     //duplicate RGB values on top half of register to allow for writing 2 pixels at once
-    add t6, t1, zero  
+    upper_duplicate:
+    add t6, t0, zero  
     slli t6, t6, 16
-    or s0, t1, t6
-    add t1, zero, zero
-    add t6, zero, zero
+    or s0, t0, t6
+    //add t1, zero, zero
+    //add t6, zero, zero
 
+    
     call edge_case_handler_1
     jal zero, colour_calc
     
@@ -217,29 +276,51 @@ loop:
     
     edge_case_handler_2: 
     li t2, LCD_FB_START
-    beq s1, t2, edge_case_handler_3
-    bgt s1, t2, edge_case_handler_3
+    beq s1, t2, edge_case_handler_end
+    bgt s1, t2, edge_case_handler_end
     add s1, t2, zero
     la a1, error_2 // load address of text
-    call serial_write
-    add a1, zero, zero
-    jal zero, edge_case_handler_3
-    
-    ebreak
-    error_3: .asciz  "WARNING: you have not chosen a text colour\n"    // store zero terminated ASCII text
-    ebreak
-    
-    edge_case_handler_3: 
-    bne s0, zero, edge_case_handler_end
-    la a1, error_3 // load address of text
     call serial_write
     add a1, zero, zero
     jal zero, edge_case_handler_end
     
     
-    
     edge_case_handler_end:
     jal zero, input_check
+    
+    
+    
+    ebreak
+    colour_warning_text_1: .asciz  "WARNING: you have not chosen a text colour\n"// store zero terminated ASCII text
+    ebreak
+    
+    
+    colour_warner:
+    
+    colour_warning_1: 
+    bne s0, zero, colour_warning_2
+    la a1, colour_warning_text_1 // load address of text
+    jal zero, serial_write
+    
+    add a1, zero, zero
+    jal zero, colour_warning_2
+    
+    ebreak
+    colour_warning_text_2: .asciz  "WARNING: text colour may be too dark to see\n"    // store zero terminated ASCII text
+    ebreak
+    
+    colour_warning_2: 
+   
+    li t1, 0x20
+    bgt s6, t1, colour_warning_ret
+    la a1, colour_warning_text_2 // load address of text
+    jal zero, serial_write
+    
+    add a1, zero, zero
+    colour_warning_ret:
+    ret
+    
+
 
     
     
@@ -284,8 +365,10 @@ tx_busy:
   //  sw t1, 0(s6)  //test to see if RGB calcs working 
 input_check:
     
-    lb t0, 0(s3) //check for input
-    beq t0, zero, colour_calc  //if there is no new inputs, return
+  lb t0, 0(s3) //check for input
+  beq t0, zero, colour_calc  //if there is no new inputs, return
+  
+  call colour_warner //
   
   li t1, 0xffffc004  //check for terminal input
   lb t3, 0(t1) //load character code
@@ -480,7 +563,7 @@ input_check:
   addi sp, sp, 1 //increment stack pointer
   
   addi s1, s1, 8 //move cursor position right by 4 pixels
-  ret //return
+  jal zero, colour_calc //return
 
   nop //free space for future edits 
   nop
@@ -511,7 +594,7 @@ input_check:
   addi sp, sp, 1
     
   addi s1, s1, 8
-  ret
+  jal zero, colour_calc
   
   nop //free space for future edits 
   nop
@@ -540,7 +623,7 @@ input_check:
   addi sp, sp, 1
   
   addi s1, s1, 8
-  ret
+  jal zero, colour_calc
   
   nop //free space for future edits 
   nop
@@ -571,8 +654,8 @@ input_check:
   add t6, zero, zero
   addi sp, sp, 1
   
-addi s1, s1, 8
-ret
+  addi s1, s1, 8
+  jal zero, colour_calc
 
   nop //free space for future edits 
   nop
@@ -581,8 +664,8 @@ ret
   nop
   nop
   
-   //write letter E to screen
-   chr_E:
+  //write letter E to screen
+  chr_E:
   add s2, s1, zero
 
   sw s0, 0(s2)
@@ -603,7 +686,7 @@ ret
   addi sp, sp, 1
   
   addi s1, s1, 8
-  ret
+  jal zero, colour_calc
 
   nop
   nop //free space for future edits 
@@ -634,7 +717,7 @@ ret
   addi sp, sp, 1
   
   addi s1, s1, 8
-  ret
+  jal zero, colour_calc
 
   nop //free space for future edits 
   nop
@@ -666,7 +749,7 @@ ret
   addi sp, sp, 1
   
   addi s1, s1, 10
-  ret
+  jal zero, colour_calc
   
   nop //free space for future edits 
   nop
@@ -700,7 +783,7 @@ ret
   addi sp, sp, 1
   
   addi s1, s1, 10
-  ret
+  jal zero, colour_calc
 
   nop //free space for future edits 
   nop
@@ -729,7 +812,7 @@ ret
   addi sp, sp, 1
   
   addi s1, s1, 4
-  ret
+  jal zero, colour_calc
   
   
   nop //free space for future edits 
@@ -760,7 +843,7 @@ ret
   addi sp, sp, 1
   
   addi s1, s1, 8
-  ret
+  jal zero, colour_calc
 
   nop //free space for future edits 
   nop
@@ -793,7 +876,7 @@ ret
   addi sp, sp, 1
   
   addi s1, s1, 10
-  ret
+  jal zero, colour_calc
 
   nop //free space for future edits 
   nop
@@ -827,7 +910,7 @@ ret
   addi sp, sp, 1
   
   addi s1, s1, 8
-  ret
+  jal zero, colour_calc
   
   nop //free space for future edits 
   nop
@@ -862,7 +945,7 @@ ret
   addi sp, sp, 1
   
   addi s1, s1, 12
-  ret
+  jal zero, colour_calc
 
   nop //free space for future edits 
   nop
@@ -897,7 +980,7 @@ ret
   addi sp, sp, 1
   
   addi s1, s1, 12
-  ret
+  jal zero, colour_calc
   
   nop //free space for future edits 
   nop
@@ -929,7 +1012,7 @@ ret
   addi sp, sp, 1
   
   addi s1, s1, 10
-  ret
+  jal zero, colour_calc
   
   nop //free space for future edits 
   nop
@@ -959,7 +1042,7 @@ ret
   addi sp, sp, 1
   
   addi s1, s1, 8
-  ret
+  jal zero, colour_calc
   
   nop //free space for future edits 
   nop
@@ -992,7 +1075,7 @@ ret
   addi sp, sp, 1
   
   addi s1, s1, 12
-  ret
+  jal zero, colour_calc
   
   nop //free space for future edits 
   nop
@@ -1024,7 +1107,7 @@ ret
   addi sp, sp, 1
   
   addi s1, s1, 8
-  ret
+  jal zero, colour_calc
   
   nop //free space for future edits 
   nop
@@ -1053,7 +1136,7 @@ ret
   addi sp, sp, 1
   
   addi s1, s1, 8
-  ret
+  jal zero, colour_calc
 
   nop //free space for future edits 
   nop
@@ -1083,7 +1166,7 @@ ret
   addi sp, sp, 1
   
   addi s1, s1, 8
-  ret
+  jal zero, colour_calc
   
   nop //free space for future edits 
   nop
@@ -1116,7 +1199,7 @@ ret
   addi sp, sp, 1
   
   addi s1, s1, 10
-  ret
+  jal zero, colour_calc
   
   nop //free space for future edits 
   nop
@@ -1149,7 +1232,7 @@ ret
   addi sp, sp, 1
   
   addi s1, s1, 12
-  ret
+  jal zero, colour_calc
   
   nop //free space for future edits 
   nop
@@ -1185,7 +1268,7 @@ ret
   addi sp, sp, 1
   
   addi s1, s1, 12
-  ret
+  jal zero, colour_calc
   
   nop //free space for future edits 
   nop
@@ -1218,7 +1301,7 @@ ret
   addi sp, sp, 1
   
   addi s1, s1, 12
-  ret
+  jal zero, colour_calc
   
   nop //free space for future edits 
   nop
@@ -1249,7 +1332,7 @@ ret
   addi sp, sp, 1
   
   addi s1, s1, 8
-  ret
+  jal zero, colour_calc
   
   nop //free space for future edits 
   nop
@@ -1280,7 +1363,7 @@ ret
   addi sp, sp, 1
   
   addi s1, s1, 8
-  ret
+  jal zero, colour_calc
   
   nop //free space for future edits 
   nop
@@ -1297,7 +1380,7 @@ ret
   addi sp, sp, 1 //increment stack pointer
   
   addi s1, s1, 8 //move cursor position right by 4 pixels 
-  ret //return
+  jal zero, colour_calc //return
   
   chr_newline:
   
@@ -1318,7 +1401,7 @@ ret
   mul t1, t1, s4 //multiply the cursor height by the screen width to get the offset that is needed to go that many pixels down
   li t4, LCD_FB_START
   add s1, t1, t4 //add the offset to the value of the screen start and store it in the cursor position
-  ret
+  jal zero, colour_calc //return
   
   
   
@@ -1333,7 +1416,6 @@ ret
     slli a4, a4, 2
     li t2, chr_del_enc // 0x00000fc8
     add a4, a4, t2
-    //  nop//add a4, zero, zero
     jalr zero, a4, 0
     
     chr_del_enc:
@@ -1504,7 +1586,7 @@ clr_two_at_chr_pointer:
   sw zero, 0(s2)
   addi s2, s2, screen_width
   sw zero, 0(s2)
-ret
+  jal zero, colour_calc
 
 
 
