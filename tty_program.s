@@ -1197,8 +1197,19 @@ ret
   addi s1, s1, 8
   ret
   
+    nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
   
-  
+  //delete letter
+  li t6, 1
+  sub sp, sp, t6 //decrement stack pointer
+  lb t6, 0(sp) //load character from stack
+  //
+
   
   
   
