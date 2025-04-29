@@ -191,10 +191,10 @@ loop:
   
     //  nop
       
-    li a1, 1 //check for input
+    nop  
     nop
-    lb a0, 0(s1)
-    bne a0, a1,  0x0000022c
+    lb a0, 0(s1) //check for input
+    beq a0, zero,  0x0000022c
     
   auipc s10, 0 //is this being used?
   
@@ -205,6 +205,7 @@ loop:
   jalr zero, a4, 0x314
     nop
     nop //free space for future edits 
+    nop
     nop
     nop
     nop
