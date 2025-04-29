@@ -95,37 +95,61 @@ __start:
 _start:
 
 loop:
-    li   s1, SERIAL_PORT_BASE           // load base address of serial port
+    li   s3, SERIAL_PORT_BASE           // load base address of serial port
 
 //todo list: 
-// add some NOPs between functions to allow edits without having to redo all the jump addresses
-//// stop RGB values being recalculated when it is not neccacary
-//// BONUS POINTS: only recalculate the colour values that changed instead of all of them
-// add the rest of the letters and backspace, next line, etc
-// add notification if you are trying to write with the colours too close to black
-// store the written text for later use for shell commands, ETC
-// optimise how the letters are found (instead of doing a BEQ of every letter, perhaps a JALR of the letter value to go to another jump that goes to the letter print function, this will stop the nested if:else loops and make all letters have the same processing latency
+ // add notification if you are trying to write with the colours too close to black
 
+
+
+//current WIP (currently not breaking code/causing issues)
+
+// add the rest of the letters and backspace, next line, etc.
+
+// add some NOPs between functions to allow edits without having to redo all the jump addresses.
+
+// store the written text for later use for shell commands, ETC ---- only 
+// implemented in A, B, C. stored in stack.
+
+
+
+
+// current WIP (currently breaking code/causing issues)
+
+// started reallocating registers to allign with how they are supposed to be used
+// ---- currently the colour calc and letters A, B work. Have not finished 
+// reallocating all the registers
+
+// stop RGB values being recalculated when it is not neccacary
+// BONUS POINTS: only recalculate the colour values that changed instead of all of 
+// them   ---- changing colours mid-runtime is half-broken, the colours only change  
+// if it is increasing the RGB value, any decrease in RGB value is ignored. The
+// cause of this bug has not been found
+
+
+
+//done
+
+// optimise how the letters are found (instead of doing a BEQ of every letter, perhaps a JALR of the letter value to go to another jump that goes to the letter print function, this will stop the nested if:else loops and make all letters have the same processing latency
 
 
     nop
         //start writing to screen
-    li s7, LCD_FB_START //s7 is the cursor position
-    li s8, LCD_FB_START //s8 is the address of the pixel being written to
-    li ra, SPILED_REG_KNOBS_8BIT //load RGB values 
+    li s1, LCD_FB_START //s7 is the cursor position
+    li s2, LCD_FB_START //s8 is the address of the pixel being written to
+    li t0, SPILED_REG_KNOBS_8BIT //load RGB values into ra
     
     auipc s11, 0
     
     
- //   add t1, zero, zero //stop colour drifting over multiple imputs
     nop
      //get RGB value 
-    lbu gp, 2(ra)
-    beq gp, a5, 0x00000264
-    add a5, gp, zero
-    srli gp, gp, 3   //divide RGB values by 2
-    slli gp, gp, 11   //merge RGB values into bottom half of 1 register (T1 register is RGB value)
-    or t1, t1, gp
+    lbu t1, 2(t0) //load colour value
+    beq t1, t2, 0x00000264 //check to see if the colour has changed
+    add t2, t1, zero //if the colour has changed, save the new colour to refrence next time
+    srli t2, t2, 3   //divide RGB values by 2
+    slli t1, t1, 11   //merge RGB values into bottom half of 1 register (T1 register is RGB value)
+    or s0, s0, t1
     j 0x00000264
     
     nop
@@ -136,12 +160,12 @@ loop:
     nop
     
     nop
-    lbu tp, 1(ra)
-    beq tp, a6,   0x0000029c
-    add a6, tp, zero   
-    srli tp, tp, 2  
-    slli tp, tp, 5
-    or t1, t1, tp
+    lbu t3, 1(t0)
+    beq t3, t4,   0x0000029c
+    add t4, t3, zero   
+    srli t3, t3, 2  
+    slli t3, t3, 5
+    or s0, s0, t3
     j  0x0000029c
     
     nop
@@ -152,11 +176,11 @@ loop:
     nop
     
     nop
-    lbu t0, 0(ra)
-    beq tp, a7,  0x000002d0
-    add a7, tp, zero   
-    srli t0, t0, 3 
-    or t1, t1, t0   
+    lbu t4, 0(t0)
+    beq t4, t5,  0x000002d0
+    add t5, t4, zero   
+    srli t4, t4, 3 
+    or s0, s0, t4
     j  0x000002d0
     
     nop
@@ -168,13 +192,14 @@ loop:
     
     //duplicate RGB values on top half of register to allow for writing 2 pixels at once
     nop
-    add t6, t1, zero
-    slli t6, t6, 16
-    or t3, t1, t6
-    add t1, zero, t3
-    add t6, zero, zero
+    add t5, s0, zero
+    slli t5, t5, 16
+    or s0, s0, t5
+//    add s0, zero, t3
+//    add t6, zero, zero
+    call 0x2ec
+    jalr zero, s11, 0
     
-
    
  
 
@@ -187,22 +212,23 @@ loop:
     
   //  sw t1, 0(s6)  //test to see if RGB calcs working
   
-    //  nop
+    nop
       
     nop  
     nop
-    lb a0, 0(s1) //check for input
+    lb a0, 0(s3) //check for input
     beq a0, zero,  0x0000022c
     
-  auipc s10, 0 //is this being used?
+  //auipc s10, 0 //is this being used?
   
   li a2, 0xffffc004  //check for terminal input
   nop
   lw a4, 0(a2)
   slli a4, a4, 2
   jalr zero, a4, 0x314
-  nop
     nop
+ //   nop
+ //   nop
     nop //free space for future edits 
     nop
     nop
@@ -338,28 +364,28 @@ loop:
     nop  //extra space to add more characters later
   
   nop  //write letter A to screen
-  add s8, s7, zero
-  sh t1, 2(s8)
-  addi s8, s8, screen_width
-  sh t1, 0(s8)
-  sh t1, 4(s8)
-  addi s8, s8, screen_width
-  sw t1, 0(s8)
-  sh t1, 4(s8)
-  addi s8, s8, screen_width
-  sh t1, 0(s8)
-  sh t1, 4(s8)
-  addi s8, s8, screen_width
-  sh t1, 0(s8)
-  sh t1, 4(s8)
+  add s2, s1, zero
+  sh s0, 2(s2)
+  addi s2, s2, screen_width
+  sh s0, 0(s2)
+  sh s0, 4(s2)
+  addi s2, s2, screen_width
+  sw s0, 0(s2)
+  sh s0, 4(s2)
+  addi s2, s2, screen_width
+  sh s0, 0(s2)
+  sh s0, 4(s2)
+  addi s2, s2, screen_width
+  sh s0, 0(s2)
+  sh s0, 4(s2)
   
   addi t6, zero, 0x61 //pop character into stack
   sb t6, 0(sp)
   add t6, zero, zero
   addi sp, sp, 1
   
-addi s7, s7, 8
-jalr zero, s11, 0
+addi s1, s1, 8
+ret
 
   nop //free space for future edits 
   nop
@@ -368,27 +394,26 @@ jalr zero, s11, 0
   nop
 
   nop  //write letter B to screen
-  add s8, s7, zero
-  sw t1, 0(s8)
-  addi s8, s8, screen_width
-  sh t1, 0(s8)
-  sh t1, 4(s8)
-  addi s8, s8, screen_width
-  sw t1, 0(s8)
-  addi s8, s8, screen_width
-  sh t1, 0(s8)
-  sh t1, 4(s8)
-  addi s8, s8, screen_width
-  sw t1, 0(s8)
+  add s2, s1, zero
+  sw s0, 0(s2)
+  addi s2, s2, screen_width
+  sh s0, 0(s2)
+  sh s0, 4(s2)
+  addi s2, s2, screen_width
+  sw s0, 0(s2)
+  addi s2, s2, screen_width
+  sh s0, 0(s2)
+  sh s0, 4(s2)
+  addi s2, s2, screen_width
+  sw s0, 0(s2)
     
   addi t6, zero, 0x62
   sb t6, 0(sp)
   add t6, zero, zero
   addi sp, sp, 1
     
-addi s7, s7, 8
-jalr zero, s11, 0
-
+addi s1, s1, 8
+ret
   nop //free space for future edits 
   nop
   nop
