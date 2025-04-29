@@ -113,6 +113,9 @@ loop:
 // store the written text for later use for shell commands, ETC ---- only 
 // implemented in A, B, C. stored in stack.
 
+//use more indirect jumps to decrease the amount of painful recalculation (see
+//code to delete characters)
+
 
 
 
@@ -143,6 +146,7 @@ loop:
     li s2, LCD_FB_START //s8 is the address of the pixel being written to
     li t0, SPILED_REG_KNOBS_8BIT //load RGB values into ra
     
+    colour_calc:
     auipc s11, 0
     
     
@@ -330,33 +334,33 @@ loop:
     nop //]
     nop //^
     nop //_
-    j 0xfc8 //` --grave accent, use as backspace
-    j 0x5a0 //a
-    j 0x608 //b
-    j 0x668 //c
-    j 0x6c0 //d
-    j 0x724 //e
-    j 0x784 //f
-    j 0x7e4 //g
-    j 0x848 //h
-    j 0x8b4 //i
-    j 0x90c //j
-    j 0x968 //k
-    j 0x9e0 //l
-    j 0xa3c //m
-    j 0xaac //n
-    j 0xb1c //o
-    j 0xb80 //p
-    j 0xbdc //q
-    j 0xc44 //r
-    j 0xca8 //s
-    j 0xd00 //t
-    j 0xd5c //u
-    j 0xdc4 //v
-    j 0xe2c //w
-    j 0xea0 //x
-    j 0xf08 //y
-    j 0xf68 //z
+    jal zero, del //` --grave accent, use as backspace
+    jal zero, chr_A //a
+    jal zero, chr_B //b
+    jal zero, chr_C //c
+    jal zero, chr_D //d
+    jal zero, chr_E //e
+    jal zero, chr_F //f
+    jal zero, chr_G //g
+    jal zero, chr_H //h
+    jal zero, chr_I //i
+    jal zero, chr_J //j
+    jal zero, chr_K //k
+    jal zero, chr_L //l
+    jal zero, chr_M //m
+    jal zero, chr_N //n
+    jal zero, chr_O //o
+    jal zero, chr_P //p
+    jal zero, chr_Q //q
+    jal zero, chr_R //r
+    jal zero, chr_S //s
+    jal zero, chr_T //t
+    jal zero, chr_U //u
+    jal zero, chr_V //v
+    jal zero, chr_W //w
+    jal zero, chr_X //x
+    jal zero, chr_Y //y
+    jal zero, chr_Z //z
     nop //{
     nop //|
     nop //}
@@ -399,6 +403,7 @@ loop:
     ecall //stop execution if unknown character
     
   //write letter A to screen
+  chr_A:
   add s2, s1, zero //set pixel write adress to cursor position
     
   sh s0, 2(s2) //write one pixel to screen at one pixel ( half this number ->2(s2) ) right of the pixel write adress 
@@ -431,6 +436,7 @@ loop:
   nop
   
   //write letter B to screen
+  chr_B:
   add s2, s1, zero
   
   sw s0, 0(s2)
@@ -461,6 +467,7 @@ loop:
   nop
   
   //write letter C to screen
+  chr_C:
   add s2, s1, zero
   
   sw s0, 2(s2)
@@ -489,6 +496,7 @@ loop:
   nop
   
   //write letter D to screen
+  chr_D:
   add s2, s1, zero
 
   sw s0, 0(s2)
@@ -520,6 +528,7 @@ ret
   nop
   
    //write letter E to screen
+   chr_E:
   add s2, s1, zero
 
   sw s0, 0(s2)
@@ -550,6 +559,7 @@ ret
   nop
   
   //write letter F to screen
+  chr_F:
   add s2, s1, zero
 
   sw s0, 0(s2)
@@ -580,6 +590,7 @@ ret
   nop
   
   //write letter G to screen
+  chr_G:
   add s2, s1, zero
 
   sh s0, 2(s2)
@@ -611,6 +622,7 @@ ret
   nop
   
   //write letter H to screen
+  chr_H:
   add s2, s1, zero
 
   sh s0, 0(s2)
@@ -644,6 +656,7 @@ ret
   nop
   
   //write letter I to screen
+  chr_I:
   add s2, s1, zero
 
   sh s0, 0(s2)
@@ -672,6 +685,7 @@ ret
   nop
   
   //write letter J to screen
+  chr_J:
   add s2, s1, zero
   
   sw s0, 2(s2)
@@ -701,6 +715,7 @@ ret
   nop
   
   //write letter k to screen
+  chr_K:
   add s2, s1, zero
 
   sh s0, 0(s2)
@@ -737,6 +752,7 @@ ret
   nop
   
   //write letter L to screen
+  chr_L:
   add s2, s1, zero
 
   sh s0, 0(s2)
@@ -766,6 +782,7 @@ ret
   nop
   
   //write letter M to screen
+  chr_M:
   add s2, s1, zero
 
   sh s0, 0(s2)
@@ -800,6 +817,7 @@ ret
   nop
   
   //write letter N to screen
+  chr_N:
   add s2, s1, zero
 
   sh s0, 0(s2)
@@ -834,6 +852,7 @@ ret
   nop
   
   //write letter O to screen
+  chr_O:
   add s2, s1, zero
 
   sw s0, 2(s2)
@@ -865,6 +884,7 @@ ret
   nop
   
   //write letter P to screen
+  chr_P:
   add s2, s1, zero
   
   sw s0, 0(s2)
@@ -894,6 +914,7 @@ ret
   nop
   
   //write letter q to screen
+  chr_Q:
   add s2, s1, zero
   
   sw s0, 2(s2)
@@ -926,6 +947,7 @@ ret
   nop
      
   //write letter R to screen
+  chr_R:
   add s2, s1, zero
   
   sw s0, 0(s2)
@@ -957,6 +979,7 @@ ret
   nop
   
   //write letter s to screen
+  chr_S:
   add s2, s1, zero
   
   sw s0, 2(s2)
@@ -985,6 +1008,7 @@ ret
   nop
   
   //write letter t to screen
+  chr_T:
   add s2, s1, zero
   
   sh s0, 2(s2)
@@ -1014,6 +1038,7 @@ ret
   nop
   
   //write letter U to screen
+  chr_U:
   add s2, s1, zero
   
   sh s0, 0(s2)
@@ -1046,6 +1071,7 @@ ret
   nop
   
   //write letter V to screen
+  chr_V:
   add s2, s1, zero
   
   sh s0, 0(s2)
@@ -1078,6 +1104,7 @@ ret
   nop
   
   //write letter w to screen
+  chr_W:
   add s2, s1, zero
   
   sh s0, 0(s2)
@@ -1113,6 +1140,7 @@ ret
   nop
   
   //write letter x to screen
+  chr_X:
   add s2, s1, zero
   
   sh s0, 0(s2)
@@ -1145,6 +1173,7 @@ ret
   nop
   
   //write letter y to screen
+  chr_Y:
   add s2, s1, zero
   
   sh s0, 0(s2)
@@ -1175,6 +1204,7 @@ ret
   nop
   
   //write letter z to screen
+  chr_Z:
   add s2, s1, zero
   
   sw s0, 0(s2)
@@ -1205,15 +1235,16 @@ ret
   nop
   
   //delete letter
-  addi t6, zero, 1
-  sub sp, t6, sp //decrement stack pointer
-  lw t6, 0(sp) //load character from stack
-  sb zero, 0(sp)
-  slli t5, t6, 2
-  li t5, 0xfc8
-  add t6, t6, t5
-  add t5, zero, zero
-  //jalr zero, t6, 0
+  del:
+  li t6, 0x00000001  //0x80000001
+  sub sp, sp, t6 //decrement stack pointer
+  lw a4, 0(sp) //load character from stack
+  sb zero, 0(sp) //delete character from stack
+  slli a4, a4, 2
+  li t2, 0x00000fc8
+  add a3, a4, t2
+  add a4, zero, zero
+  jalr zero, a3, 0
   ret
     nop
     nop
@@ -1233,7 +1264,125 @@ ret
     nop
     nop
     nop
-    nop
+    ebreak
+    nop //space
+    nop //!
+    nop //"
+    nop //#
+    nop //$
+    nop //%
+    nop //&
+    nop //' --apostraphe
+    nop //(
+    nop //)
+    nop //*
+    nop //+
+    nop //,
+    nop //-
+    nop //.
+    nop ///
+    nop //0
+    nop //1
+    nop //2
+    nop //3
+    nop //4
+    nop //5
+    nop //6
+    nop //7
+    nop //8
+    nop //9
+    nop //:
+    nop //; --semicolon, use as enter/newline
+    nop //<
+    nop //=
+    nop //>
+    nop //?
+    nop //@
+    nop //A
+    nop //B
+    nop //C
+    nop //D
+    nop //E
+    nop //F
+    nop //G
+    nop //H
+    nop //I
+    nop //J
+    nop //K
+    nop //L
+    nop //M
+    nop //N
+    nop //O
+    nop //P
+    nop //Q
+    nop //R
+    nop //S
+    nop //T
+    nop //U
+    nop //V
+    nop //W
+    nop //X
+    nop //Y
+    nop //Z
+    nop //[
+    nop //\
+    nop //]
+    nop //^
+    nop //_
+    j 0xfc8 //` --grave accent, use as backspace
+    j 0x5a0 //a
+    j 0x608 //b
+    j 0x668 //c
+    j 0x6c0 //d
+    j 0x724 //e
+    j 0x784 //f
+    j 0x7e4 //g
+ecall//    j 0x848 //h
+    jal zero, dec_four_wide //i
+ ecall//   j 0x90c //j
+ ecall//   j 0x968 //k
+ ecall //  j 0x9e0 //l
+    j 0xa3c //m
+    j 0xaac //n
+    j 0xb1c //o
+    j 0xb80 //p
+    j 0xbdc //q
+    j 0xc44 //r
+    j 0xca8 //s
+    j 0xd00 //t
+    j 0xd5c //u
+    j 0xdc4 //v
+    j 0xe2c //w
+    j 0xea0 //x
+    j 0xf08 //y
+    j 0xf68 //z
+    nop //{
+    nop //|
+    nop //}
+    nop //~
+  
+
+dec_four_wide:
+   li t6, 0x00000004  
+  sub s1, s1, t6 //move character pointer left by two pixels
+  
+  jal zero, clr_two_at_chr_pointer
+
+
+clr_two_at_chr_pointer:
+  add s2, s1, zero
+  
+  sw zero, 0(s2)
+  addi s2, s2, screen_width
+  sw zero, 0(s2)
+  addi s2, s2, screen_width
+  sw zero, 0(s2)
+  addi s2, s2, screen_width
+  sw zero, 0(s2)
+  addi s2, s2, screen_width
+  sw zero, 0(s2)
+ebreak
+  
   
   
   
