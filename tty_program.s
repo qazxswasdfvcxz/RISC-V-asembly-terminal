@@ -108,12 +108,10 @@ loop:
 
 
 
-
+    nop
         //start writing to screen
-    li s6, LCD_FB_START
-    li s5, screen_width
-    add s7, s6, zero //s7 is the cursor position
-    add s8, s6, zero //s8 is the address of the pixel being written to
+    li s7, LCD_FB_START //s7 is the cursor position
+    li s8, LCD_FB_START //s8 is the address of the pixel being written to
     li ra, SPILED_REG_KNOBS_8BIT //load RGB values 
     
     auipc s11, 0
@@ -203,6 +201,7 @@ loop:
   lw a4, 0(a2)
   slli a4, a4, 2
   jalr zero, a4, 0x314
+  nop
     nop
     nop //free space for future edits 
     nop
@@ -235,7 +234,7 @@ loop:
     nop
     nop
     nop
-    nop //spacebar location
+    ecall //spacebar location
     nop
     nop
     nop
@@ -341,18 +340,23 @@ loop:
   nop  //write letter A to screen
   add s8, s7, zero
   sh t1, 2(s8)
-  add s8, s5, s7
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 4(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sw t1, 0(s8)
   sh t1, 4(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 4(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 4(s8)
+  
+  addi t6, zero, 0x61 //pop character into stack
+  sb t6, 0(sp)
+  add t6, zero, zero
+  addi sp, sp, 1
   
 addi s7, s7, 8
 jalr zero, s11, 0
@@ -362,24 +366,25 @@ jalr zero, s11, 0
   nop
   nop
   nop
-  nop
-  nop
-  nop
-  nop
 
   nop  //write letter B to screen
   add s8, s7, zero
   sw t1, 0(s8)
-  add s8, s5, s7
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 4(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sw t1, 0(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 4(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sw t1, 0(s8)
+    
+  addi t6, zero, 0x62
+  sb t6, 0(sp)
+  add t6, zero, zero
+  addi sp, sp, 1
     
 addi s7, s7, 8
 jalr zero, s11, 0
@@ -389,23 +394,24 @@ jalr zero, s11, 0
   nop
   nop
   nop
-  nop
-  nop
-  nop
-  nop
 
  nop  //write letter C to screen
   add s8, s7, zero
 
   sw t1, 2(s8)
-  add s8, s5, s7
+  addi s8, s8, screen_width
   sh t1, 0(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sw t1, 2(s8)
+  
+  addi t6, zero, 0x63
+  sb t6, 0(sp)
+  add t6, zero, zero
+  addi sp, sp, 1
   
 addi s7, s7, 8
 jalr zero, s11, 0
@@ -415,25 +421,21 @@ jalr zero, s11, 0
   nop
   nop
   nop
-  nop
-  nop
-  nop
-  nop
 
  nop  //write letter D to screen
   add s8, s7, zero
 
   sw t1, 0(s8)
-  add s8, s5, s7
+  addi s8, s8, screen_width
   sh t1, 0(s8)  
   sh t1, 4(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 4(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 4(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sw t1, 0(s8)
   
 addi s7, s7, 8
@@ -454,13 +456,13 @@ jalr zero, s11, 0
 
   sw t1, 0(s8)
   sh t1, 4(s8)
-  add s8, s5, s7
+  addi s8, s8, screen_width
   sh t1, 0(s8)  
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sw t1, 0(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sw t1, 0(s8)
   sh t1, 4(s8)
   
@@ -482,14 +484,14 @@ jalr zero, s11, 0
 
   sw t1, 0(s8)
   sh t1, 4(s8)
-  add s8, s5, s7
+  addi s8, s8, screen_width
   sh t1, 0(s8)  
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 2(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
 addi s7, s7, 8
 jalr zero, s11, 0
@@ -509,15 +511,15 @@ jalr zero, s11, 0
 
   sh t1, 2(s8)
   sw t1, 4(s8)
-  add s8, s5, s7
+  addi s8, s8, screen_width
   sh t1, 0(s8) 
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sw t1, 4(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 6(s8) 
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sw t1, 2(s8)
   
 addi s7, s7, 10
@@ -538,18 +540,19 @@ jalr zero, s11, 0
 
   sh t1, 0(s8)
   sh t1, 6(s8)
-  add s8, s5, s7
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 6(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sw t1, 0(s8)
   sw t1, 4(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 6(s8) 
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 6(s8)
+  
 addi s7, s7, 10
 jalr zero, s11, 0
 
@@ -567,13 +570,13 @@ jalr zero, s11, 0
   add s8, s7, zero
 
   sh t1, 0(s8)
-  add s8, s5, s7
+  addi s8, s8, screen_width
   sh t1, 0(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
 addi s7, s7, 4
 jalr zero, s11, 0
@@ -592,14 +595,14 @@ jalr zero, s11, 0
   add s8, s7, zero
   
   sw t1, 2(s8)
-  add s8, s5, s7
+  addi s8, s8, screen_width
   sh t1, 4(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 4(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 4(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 2(s8)
   
 addi s7, s7, 8
@@ -620,15 +623,15 @@ jalr zero, s11, 0
 
   sh t1, 0(s8)
   sh t1, 6(s8)
-  add s8, s5, s7
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 4(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sw t1, 0(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 4(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 6(s8)
 addi s7, s7, 10
@@ -648,15 +651,16 @@ jalr zero, s11, 0
   add s8, s7, zero
 
   sh t1, 0(s8)
-  add s8, s5, s7
+  addi s8, s8, screen_width
   sh t1, 0(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sw t1, 0(s8)
   sh t1, 4(s8)
+  
 addi s7, s7, 8
 jalr zero, s11, 0
 
@@ -675,19 +679,20 @@ jalr zero, s11, 0
 
   sh t1, 0(s8)
   sh t1, 8(s8)
-  add s8, s5, s7
+  addi s8, s8, screen_width
   sw t1, 0(s8)
   sw t1, 6(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 4(s8)
   sh t1, 8(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 8(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 8(s8)
+  
 addi s7, s7, 12
 jalr zero, s11, 0
 
@@ -706,19 +711,20 @@ jalr zero, s11, 0
 
   sh t1, 0(s8)
   sh t1, 8(s8)
-  add s8, s5, s7
+  addi s8, s8, screen_width
   sw t1, 0(s8)
   sh t1, 8(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 4(s8)
   sh t1, 8(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sw t1, 6(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 8(s8)
+  
 addi s7, s7, 12
 jalr zero, s11, 0
 
@@ -736,16 +742,16 @@ jalr zero, s11, 0
   add s8, s7, zero
 
   sw t1, 2(s8)
-  add s8, s5, s7
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 6(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 6(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 6(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sw t1, 2(s8)
   
 addi s7, s7, 10
@@ -764,14 +770,14 @@ jalr zero, s11, 0
  nop  //write letter P to screen
   add s8, s7, zero
   sw t1, 0(s8)
-  add s8, s5, s7
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 4(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sw t1, 0(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   
 addi s7, s7, 8
@@ -790,18 +796,19 @@ jalr zero, s11, 0
  nop  //write letter q to screen
   add s8, s7, zero
   sw t1, 2(s8)
-  add s8, s5, s7
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 6(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 6(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 6(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sw t1, 2(s8)
   sw t1, 6(s8)
+  
 addi s7, s7, 12
 jalr zero, s11, 0
 
@@ -818,15 +825,15 @@ jalr zero, s11, 0
  nop  //write letter R to screen
   add s8, s7, zero
   sw t1, 0(s8)
-  add s8, s5, s7
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 4(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sw t1, 0(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 4(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 0(s8)
   sh t1, 4(s8)
   
@@ -846,42 +853,18 @@ jalr zero, s11, 0
  nop  //write letter s to screen
   add s8, s7, zero
   sw t1, 2(s8)
-  add s8, s5, s7
+  addi s8, s8, screen_width
   sh t1, 0(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 2(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sh t1, 4(s8)
-  add s8, s5, s8
+  addi s8, s8, screen_width
   sw t1, 0(s8)
   
 addi s7, s7, 8
 jalr zero, s11, 0
 
-  nop //free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  
- ecall  //write letter t to screen
-  add s8, s7, zero
-  sw t1, 2(s8)
-  add s8, s5, s7
-  sh t1, 0(s8)
-  add s8, s5, s8
-  sh t1, 2(s8)
-  add s8, s5, s8
-  sh t1, 4(s8)
-  add s8, s5, s8
-  sw t1, 0(s8)
-  
-addi s7, s7, 8
-jalr zero, s11, 0
 
 end_char:
     ebreak // stop continuous execution, request developer interaction
