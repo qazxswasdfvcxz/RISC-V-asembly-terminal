@@ -144,11 +144,28 @@ loop:
   li a2, 0xffffc004
   nop
   lw a4, 0(a2)
-  bne a3, a4, 0x284
+  beq a3, a4, 0x2fc //A
+  addi a3, a3, 1
+  beq a3,a4, 0x348 //B
+  addi a3, a3, 1
+  beq a3,a4, 0x390 //C
+  nop
+  nop  //extra space to add more characters later
   nop
   nop
   nop
-  nop  //write letter to screen
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  beq zero, zero, 0x284
+  nop
+  
+  nop  //write letter A to screen
   add s8, s7, zero
   sh t1, 2(s8)
   add s8, s5, s7
@@ -161,9 +178,58 @@ loop:
   add s8, s5, s8
   sh t1, 0(s8)
   sh t1, 4(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 4(s8)
+  
 addi s7, s7, 8
 add s8, s7, zero
 beq zero, zero, 0x00000220
+
+
+ nop  //write letter B to screen
+  add s8, s7, zero
+  sh t1, 0(s8)
+  sh t1, 2(s8)
+  add s8, s5, s7
+  sh t1, 0(s8)
+  sh t1, 4(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 2(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 4(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 2(s8)
+  
+  
+addi s7, s7, 8
+add s8, s7, zero
+beq zero, zero, 0x00000220
+
+
+ nop  //write letter C to screen
+  add s8, s7, zero
+
+  sh t1, 2(s8)
+    sh t1, 4(s8)
+  add s8, s5, s7
+  sh t1, 0(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  add s8, s5, s8
+  sh t1, 2(s8)
+  sh t1, 4(s8)
+  
+addi s7, s7, 8
+add s8, s7, zero
+beq zero, zero, 0x00000220
+
+
 end_char:
     ebreak // stop continuous execution, request developer interaction
     jal  zero, end_char
