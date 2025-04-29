@@ -88,8 +88,8 @@
 
 
 .equ screen_width, 0x000003c0
-.equ newline_stack_pointer, 0xffe4b000
-
+.equ newline_stack_pointer, 0x0
+.equ newline_stack_pointer_start_add, 0x2//0xffe4b004
 
 __start:
 _start:
@@ -151,10 +151,8 @@ loop:
     //start writing to screen      
     
     li a1, newline_stack_pointer
-    li a3, newline_stack_pointer
-    addi a2, a1, 0x4  
-    
-    sw a2, 0(a3)
+    li a2, newline_stack_pointer_start_add
+    sw a2, 0(a1)
 
     li s1, LCD_FB_START //s7 is the cursor position
     li s2, LCD_FB_START //s8 is the address of the pixel being written to
@@ -1304,7 +1302,7 @@ ret
   chr_newline:
   
   li t3, newline_stack_pointer
-  lw t4, 0(t3) //load the adress for the newline stack
+  lh t4, 0(t3) //load the adress for the newline stack
   
   addi t6, zero, 0x3b //load ascii value of this character 
   sb t6, 0(sp) //pop character into stack
@@ -1313,8 +1311,7 @@ ret
   
   sh s1, 0(t4) //push the bottom half of the s1 register into the newline stack (reordered away from the newline stack adress load to reduce pipeline stalls
   addi t5, t4, 2 //increment newline stack
-  sw t5, 0(t3)  //store newline stack pointer back
-  
+  sh t5, 0(t3)  //store newline stack pointer back
   
   li t1, screen_width
   addi s4, s4, 0x8 //s4 is current cursor height (how many pixels down from the top)
