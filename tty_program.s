@@ -88,7 +88,7 @@
 
 
 .equ screen_width, 0x000003c0
-
+.equ newline_stack_pointer, 0xffe4b000
 
 
 __start:
@@ -97,34 +97,29 @@ _start:
 loop:
     
 
-//todo list: 
- // add notification if you are trying to write with the colours too close to black
- // stop RGB values being recalculated when it is not neccacary
- // BONUS POINTS: only recalculate the colour values that changed instead of all of 
- // them
- //fix occasional crash when deleting spaces
- //fix some letters not being cleared correctly whenv being deleted
+// todo list: 
 
-//current WIP (currently not breaking code/causing issues)
+// stop RGB values being recalculated when it is not neccacary
+// BONUS POINTS: only recalculate the colour values that changed instead of all of 
+// them
+
+
+// current WIP (currently not breaking code/causing issues)
 
 // add the rest of the letters and backspace, next line, etc.
 
-// add some NOPs between functions to allow edits without having to redo all the jump addresses.
+// add notification if you have text colour too close to black ---- currently only
+// activates on pure black, currently spams terminal with warnings
 
-// store the written text for later use for shell commands, ETC ---- only 
-// implemented in A, B, C. stored in stack.
-
-//use more indirect jumps to decrease the amount of painful recalculation (see
-//code to delete characters)
-
-
+// started reallocating registers to allign with how they are supposed to be used
+// ---- most registers reallocated, still need to look ffor ones I missed
 
 
 // current WIP (currently breaking code/causing issues)
 
-// started reallocating registers to allign with how they are supposed to be used
-// ---- currently the RGB value and letters A, B work. Have not finished 
-// reallocating all the registers
+
+
+
 
 
 
@@ -132,18 +127,35 @@ loop:
 
 //done
 
+// store the written text for later use for shell commands, ETC
+
 // optimise how the letters are found (instead of doing a BEQ of every letter, perhaps a JALR of the letter value to go to another jump that goes to the letter print function, this will stop the nested if:else loops and make all letters have the same processing latency
 
+// fix occasional crash when deleting spaces, fix some letters not being cleared correctly when being
+// deleted ---- same bug, the chr_del_enc was misaligned (EG: it thoight it was deleting a H when it
+// was deleting an I)
+
+// use more indirect jumps to decrease the amount of painful recalculation (see
+// code to delete characters)
+
+//added some error detection (see edge_case_handler_1, 2, etc)
 
 
 
 
 
 
-    nop
-    nop
-    nop 
-    //start writing to screen        
+
+
+
+    //start writing to screen      
+    
+    li a1, newline_stack_pointer
+    li a3, newline_stack_pointer
+    addi a2, a1, 0x4  
+    
+    sw a2, 0(a3)
+
     li s1, LCD_FB_START //s7 is the cursor position
     li s2, LCD_FB_START //s8 is the address of the pixel being written to
     li s3, SERIAL_PORT_BASE // load base address of serial port
@@ -176,45 +188,66 @@ loop:
     add t6, t1, zero  
     slli t6, t6, 16
     or s0, t1, t6
-    add t1, zero, t3
+    add t1, zero, zero
     add t6, zero, zero
 
-    call edge_case_handler_2
+    call edge_case_handler_1
     jal zero, colour_calc
     
-    
-    
-    
+
+    ebreak
+    error_1: .asciz  "ERROR: stack overflow\n"    // store zero terminated ASCII text
+    ebreak
+
     //currently set to stop on error values, commented instructions are for automatically fixing the values
     edge_case_handler_1: //if the stack pointer is lower then it is supposed to be, this is expected behavior when sending delete chr command with no text so it is kept as auto-fix
     
-    li t0, 0xbfffff00
-    bgt sp, t0, edge_case_handler_2
-    add sp, t0, zero
-    add a0, zero, zero
+    li t0, 0xbfffff00                 // load the default stack pointer value 
+    beq t0, sp, edge_case_handler_2  // if the stack pointer isn't greater than or equal to the default stack pointer value, continue
+    bgt sp, t0, edge_case_handler_2  
+    add sp, t0, zero //set the stack pointer to the default stack pointer value
+    la a1, error_1 // load address of text
+    call serial_write
+    add a1, zero, zero
     jal zero, edge_case_handler_2
-    nop
-    nop
-    nop
-    text_1: .asciz  "cursor overflow error\n"    // store zero terminated ASCII text
-    nop
-    nop
+    
+    
+    
+    ebreak
+    error_2: .asciz  "ERROR: cursor overflow\n"    // store zero terminated ASCII text
+    ebreak
+    
     edge_case_handler_2: 
     li t2, LCD_FB_START
-    beq t2, s1, edge_case_handler_end
-    blt s1, t2, edge_case_handler_end
-    la   a1, text_1 // load address of text
+    beq s1, t2, edge_case_handler_3
+    bgt s1, t2, edge_case_handler_3
+    add s1, t2, zero
+    la a1, error_2 // load address of text
+    call serial_write
+    add a1, zero, zero
+    jal zero, edge_case_handler_3
+    
+    ebreak
+    error_3: .asciz  "WARNING: you have not chosen a text colour\n"    // store zero terminated ASCII text
+    ebreak
+    
+    edge_case_handler_3: 
+    bne s0, zero, edge_case_handler_end
+    la a1, error_3 // load address of text
     call serial_write
     add a1, zero, zero
     jal zero, edge_case_handler_end
+    
+    
+    
     edge_case_handler_end:
     jal zero, input_check
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
+
+    
+    
+    
+    
+    
     
     serial_write:
     li   a0, SERIAL_PORT_BASE           // load base address of serial port
@@ -239,22 +272,7 @@ tx_busy:
     nop
     nop
     nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
+  
    
  
 
@@ -268,13 +286,13 @@ tx_busy:
   //  sw t1, 0(s6)  //test to see if RGB calcs working 
 input_check:
     
-    lb a0, 0(s3) //check for input
-    beq a0, zero, colour_calc  //if there is no new inputs, return
+    lb t0, 0(s3) //check for input
+    beq t0, zero, colour_calc  //if there is no new inputs, return
   
-  li a2, 0xffffc004  //check for terminal input
-  lb a4, 0(a2)
-  slli a4, a4, 2
-  jalr zero, a4, chr_code
+  li t1, 0xffffc004  //check for terminal input
+  lb t3, 0(t1) //load character code
+  slli t3, t3, 2 //multiply to align with instruction addresses
+  jalr zero, t3, chr_code //indirect jump to write character
   chr_code:
     nop
     nop
@@ -307,7 +325,7 @@ input_check:
     nop
     nop
     nop
-    nop
+    ret
     jal zero, chr_space //space
     nop //!
     nop //"
@@ -335,7 +353,7 @@ input_check:
     nop //8
     nop //9
     nop //:
-    nop //; --semicolon, use as enter/newline
+    jal zero, chr_newline //; --semicolon, use as enter/newline
     nop //<
     nop //=
     nop //>
@@ -371,7 +389,7 @@ input_check:
     nop //\
     nop //]
     nop //^
-    nop //_
+    ret //_
     jal zero, del //` --grave accent, use as backspace
     jal zero, chr_A //a
     jal zero, chr_B //b
@@ -402,7 +420,7 @@ input_check:
     nop //{
     nop //|
     nop //}
-    nop //~
+    ret //~
     nop
     nop
     nop
@@ -713,8 +731,9 @@ ret
   addi sp, sp, 1
   
   addi s1, s1, 4
-  jalr zero, s11, 0
-
+  ret
+  
+  
   nop //free space for future edits 
   nop
   nop
@@ -1049,10 +1068,10 @@ ret
   chr_T:
   add s2, s1, zero
   
-  sh s0, 2(s2)
-  addi s2, s2, screen_width
   sw s0, 0(s2)
   sh s0, 4(s2)
+  addi s2, s2, screen_width
+  sh s0, 2(s2)
   addi s2, s2, screen_width
   sh s0, 2(s2)
   addi s2, s2, screen_width
@@ -1279,8 +1298,33 @@ ret
   add t6, zero, zero //clear register
   addi sp, sp, 1 //increment stack pointer
   
-  addi s1, s1, 8
+  addi s1, s1, 8 //move cursor position right by 4 pixels 
   ret //return
+  
+  chr_newline:
+  
+  li t3, newline_stack_pointer
+  lw t4, 0(t3) //load the adress for the newline stack
+  
+  addi t6, zero, 0x3b //load ascii value of this character 
+  sb t6, 0(sp) //pop character into stack
+  add t6, zero, zero //clear register
+  addi sp, sp, 1 //increment stack pointer
+  
+  sh s1, 0(t4) //push the bottom half of the s1 register into the newline stack (reordered away from the newline stack adress load to reduce pipeline stalls
+  addi t5, t4, 2 //increment newline stack
+  sw t5, 0(t3)  //store newline stack pointer back
+  
+  
+  li t1, screen_width
+  addi s4, s4, 0x8 //s4 is current cursor height (how many pixels down from the top)
+  mul t1, t1, s4 //multiply the cursor height by the screen width to get the offset that is needed to go that many pixels down
+  li t4, LCD_FB_START
+  add s1, t1, t4 //add the offset to the value of the screen start and store it in the cursor position
+  ret
+  
+  
+  
   
   
     //delete letter
@@ -1297,8 +1341,6 @@ ret
     
     chr_del_enc:
     jal zero, colour_calc //  ret
-    ebreak
-    ebreak
     ebreak
     ebreak
     ebreak
@@ -1392,8 +1434,8 @@ ret
     ebreak //\
     ebreak //]
     ebreak //^
-    ebreak //_
-    ecall//` --grave accent, use as backspace
+    ret //_
+    ebreak//` --grave accent, use as backspace
     jal zero, dec_eight_wide //a
     jal zero, dec_eight_wide //b
     jal zero, dec_eight_wide //c
@@ -1410,7 +1452,7 @@ ret
     jal zero, dec_twelve_wide//n
     jal zero, dec_ten_wide//o
     jal zero, dec_eight_wide//p
-    ebreak //jal zero, dec_twelve_wide//q
+    jal zero, dec_twelve_wide//q
     jal zero, dec_eight_wide//r
     jal zero, dec_eight_wide//s
     jal zero, dec_eight_wide//t
@@ -1423,7 +1465,7 @@ ret
     nop //{
     nop //|
     nop //}
-    nop //~
+    ret //~
   
 
   dec_four_wide:
