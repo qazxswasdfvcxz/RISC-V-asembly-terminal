@@ -241,15 +241,134 @@ loop:
   lw a4, 0(a2)
   slli a4, a4, 2
   jalr zero, a4, 0x314
+    
     nop
- //   nop
- //   nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
     nop //free space for future edits 
     nop
     nop
     nop
     nop
+    nop //space
+    nop //!
+    nop //"
+    nop //#
+    nop //$
+    nop //%
+    nop //&
+    nop //' --apostraphe
+    nop //(
+    nop //)
+    nop //*
+    nop //+
+    nop //,
+    nop //-
+    nop //.
+    nop ///
+    nop //0
+    nop //1
+    nop //2
+    nop //3
+    nop //4
+    nop //5
+    nop //6
+    nop //7
+    nop //8
+    nop //9
+    nop //:
+    nop //; --semicolon, use as enter/newline
+    nop //<
+    nop //=
+    nop //>
+    nop //?
+    nop //@
+    nop //A
+    nop //B
+    nop //C
+    nop //D
+    nop //E
+    nop //F
+    nop //G
+    nop //H
+    nop //I
+    nop //J
+    nop //K
+    nop //L
+    nop //M
+    nop //N
+    nop //O
+    nop //P
+    nop //Q
+    nop //R
+    nop //S
+    nop //T
+    nop //U
+    nop //V
+    nop //W
+    nop //X
+    nop //Y
+    nop //Z
+    nop //[
+    nop //\
+    nop //]
+    nop //^
+    nop //_
+    j 0x000 //` --grave accent, use as backspace
+    j 0x5a0 //a
+    j 0x608 //b
+    j 0x668 //c
+    j 0x6c0 //d
+    j 0x724 //e
+    j 0x784 //f
+    j 0x7e4 //g
+    j 0x848 //h
+    j 0x8b4 //i
+    j 0x90c //j
+    j 0x968 //k
+    j 0x9e0 //l
+    j 0xa3c //m
+    j 0xaac //n
+    j 0xb1c //o
+    j 0xb80 //p
+    j 0xbdc //q
+    j 0xc44 //r
+    j 0xca8 //s
+    j 0xd00 //t
+    j 0xd5c //u
+    j 0xdc4 //v
+    j 0xe2c //w
+    j 0xea0 //x
+    j 0xf08 //y
+    j 0xf68 //z
+    nop //{
+    nop //|
+    nop //}
+    nop //~
+    nop
+    nop
+    nop
+    nop 
+    nop
+    nop
     nop
+    nop 
     nop
     nop
     nop
@@ -258,6 +377,7 @@ loop:
     nop
     nop
     nop
+    nop  
     nop
     nop
     nop
@@ -275,141 +395,44 @@ loop:
     nop
     nop
     nop
-    ecall //spacebar location
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
- //   nop
- //   nop
- //   nop
- //   nop
- //   nop
- //   nop
- //   nop
- //   nop
-    nop
-    j 0x530 //a
-    j 0x594 //b
-    j 0x5f4 //c
-    j 0x64c //d
-    j 0x6b0 //e
-    j 0x710 //f
-    j 0x770 //g
-    j 0x7d4 //h
-    j 0x840 //i
-    j 0x898 //j
-    j 0x8f4 //k
-    j 0x95c //l
-    j 0x9b8 //m
-    j 0xa28 //n
-    j 0xa98 //o
-    j 0xafc //p
-    j 0xb58 //q
-    j 0xbc0 //r
-    j 0xc24 //s
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop  //extra space to add more characters later
-  
-  nop  //write letter A to screen
-  add s2, s1, zero
-  sh s0, 2(s2)
+    nop  
+    ecall //stop execution if unknown character
+    
+  //write letter A to screen
+  add s2, s1, zero //set pixel write adress to cursor position
+    
+  sh s0, 2(s2) //write one pixel to screen at one pixel ( half this number ->2(s2) ) right of the pixel write adress 
+  addi s2, s2, screen_width //move pixel write adress down one row
+  sh s0, 0(s2)
+  sh s0, 4(s2)
+  addi s2, s2, screen_width
+  sw s0, 0(s2) //write two pixels, one at the pixel write adress and one to the right of the pixel write adress
+  sh s0, 4(s2)
   addi s2, s2, screen_width
   sh s0, 0(s2)
   sh s0, 4(s2)
   addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sh s0, 4(s2)
-  addi s2, s2, screen_width
-  sh s0, 0(s2)
-  sh s0, 4(s2)
-  addi s2, s2, screen_width
   sh s0, 0(s2)
   sh s0, 4(s2)
   
-  addi t6, zero, 0x61 //pop character into stack
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 1
+  addi t6, zero, 0x61 //load ascii value of this character 
+  sb t6, 0(sp) //pop character into stack
+  add t6, zero, zero //clear register
+  addi sp, sp, 1 //increment stack pointer
   
-addi s1, s1, 8
-ret
+  addi s1, s1, 8 //move cursor position right by 4 pixels
+  ret //return
 
   nop //free space for future edits 
   nop
   nop
   nop
   nop
-
-  nop  //write letter B to screen
+  nop
+  
+  //write letter B to screen
   add s2, s1, zero
+  
   sw s0, 0(s2)
   addi s2, s2, screen_width
   sh s0, 0(s2)
@@ -427,16 +450,19 @@ ret
   add t6, zero, zero
   addi sp, sp, 1
     
-addi s1, s1, 8
-ret
+  addi s1, s1, 8
+  ret
+  
   nop //free space for future edits 
   nop
   nop
   nop
   nop
-
- nop  //write letter C to screen
+  nop
+  
+  //write letter C to screen
   add s2, s1, zero
+  
   sw s0, 2(s2)
   addi s2, s2, screen_width
   sh s0, 0(s2)
@@ -452,15 +478,17 @@ ret
   add t6, zero, zero
   addi sp, sp, 1
   
-addi s1, s1, 8
-ret
+  addi s1, s1, 8
+  ret
+  
   nop //free space for future edits 
   nop
   nop
   nop
   nop
-
- nop  //write letter D to screen
+  nop
+  
+  //write letter D to screen
   add s2, s1, zero
 
   sw s0, 0(s2)
@@ -489,8 +517,9 @@ ret
   nop
   nop
   nop
-
- nop  //write letter E to screen
+  nop
+  
+   //write letter E to screen
   add s2, s1, zero
 
   sw s0, 0(s2)
@@ -518,8 +547,9 @@ ret
   nop
   nop
   nop
+  nop
   
-  nop  //write letter F to screen
+  //write letter F to screen
   add s2, s1, zero
 
   sw s0, 0(s2)
@@ -547,8 +577,9 @@ ret
   nop
   nop
   nop
+  nop
   
-  nop  //write letter G to screen
+  //write letter G to screen
   add s2, s1, zero
 
   sh s0, 2(s2)
@@ -577,8 +608,9 @@ ret
   nop
   nop
   nop
+  nop
   
-  nop  //write letter H to screen
+  //write letter H to screen
   add s2, s1, zero
 
   sh s0, 0(s2)
@@ -609,8 +641,9 @@ ret
   nop
   nop
   nop
+  nop
   
- nop  //write letter I to screen
+  //write letter I to screen
   add s2, s1, zero
 
   sh s0, 0(s2)
@@ -636,8 +669,9 @@ ret
   nop
   nop
   nop
+  nop
   
-  nop  //write letter J to screen
+  //write letter J to screen
   add s2, s1, zero
   
   sw s0, 2(s2)
@@ -664,8 +698,9 @@ ret
   nop
   nop
   nop
+  nop
   
-  nop  //write letter k to screen
+  //write letter k to screen
   add s2, s1, zero
 
   sh s0, 0(s2)
@@ -699,8 +734,9 @@ ret
   nop
   nop
   nop
+  nop
   
- nop  //write letter L to screen
+  //write letter L to screen
   add s2, s1, zero
 
   sh s0, 0(s2)
@@ -727,9 +763,9 @@ ret
   nop
   nop
   nop
-
+  nop
   
-  nop  //write letter M to screen
+  //write letter M to screen
   add s2, s1, zero
 
   sh s0, 0(s2)
@@ -761,8 +797,9 @@ ret
   nop
   nop
   nop
+  nop
   
-  nop  //write letter N to screen
+  //write letter N to screen
   add s2, s1, zero
 
   sh s0, 0(s2)
@@ -794,8 +831,9 @@ ret
   nop
   nop
   nop
+  nop
   
-   nop  //write letter O to screen
+  //write letter O to screen
   add s2, s1, zero
 
   sw s0, 2(s2)
@@ -824,8 +862,9 @@ ret
   nop
   nop
   nop
+  nop
   
-   nop  //write letter P to screen
+  //write letter P to screen
   add s2, s1, zero
   
   sw s0, 0(s2)
@@ -852,8 +891,9 @@ ret
   nop
   nop
   nop
+  nop
   
-  nop  //write letter q to screen
+  //write letter q to screen
   add s2, s1, zero
   
   sw s0, 2(s2)
@@ -883,8 +923,9 @@ ret
   nop
   nop
   nop
-  
-   nop  //write letter R to screen
+  nop
+     
+  //write letter R to screen
   add s2, s1, zero
   
   sw s0, 0(s2)
@@ -913,8 +954,9 @@ ret
   nop
   nop
   nop
+  nop
   
-  nop  //write letter s to screen
+  //write letter s to screen
   add s2, s1, zero
   
   sw s0, 2(s2)
@@ -935,6 +977,233 @@ ret
   addi s1, s1, 8
   ret
 
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  
+  //write letter t to screen
+  add s2, s1, zero
+  
+  sh s0, 2(s2)
+  addi s2, s2, screen_width
+  sw s0, 0(s2)
+  sh s0, 4(s2)
+  addi s2, s2, screen_width
+  sh s0, 2(s2)
+  addi s2, s2, screen_width
+  sh s0, 2(s2)
+  addi s2, s2, screen_width
+  sh s0, 2(s2)
+  
+  addi t6, zero, 0x73
+  sb t6, 0(sp)
+  add t6, zero, zero
+  addi sp, sp, 1
+  
+  addi s1, s1, 8
+  ret
+  
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  
+  //write letter U to screen
+  add s2, s1, zero
+  
+  sh s0, 0(s2)
+  sh s0, 6(s2)
+  addi s2, s2, screen_width
+  sh s0, 0(s2)
+  sh s0, 6(s2)
+  addi s2, s2, screen_width
+  sh s0, 0(s2)
+  sh s0, 6(s2)
+  addi s2, s2, screen_width
+  sh s0, 0(s2)
+  sh s0, 6(s2)
+  addi s2, s2, screen_width
+  sw s0, 2(s2)
+  
+  addi t6, zero, 0x74
+  sb t6, 0(sp)
+  add t6, zero, zero
+  addi sp, sp, 1
+  
+  addi s1, s1, 10
+  ret
+  
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  
+  //write letter V to screen
+  add s2, s1, zero
+  
+  sh s0, 0(s2)
+  sh s0, 8(s2)
+  addi s2, s2, screen_width
+  sh s0, 0(s2)
+  sh s0, 8(s2)
+  addi s2, s2, screen_width
+  sh s0, 0(s2)
+  sh s0, 8(s2)
+  addi s2, s2, screen_width
+  sh s0, 2(s2)
+  sh s0, 6(s2)
+  addi s2, s2, screen_width
+  sh s0, 4(s2)
+  
+  addi t6, zero, 0x75
+  sb t6, 0(sp)
+  add t6, zero, zero
+  addi sp, sp, 1
+  
+  addi s1, s1, 12
+  ret
+  
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  
+  //write letter w to screen
+  add s2, s1, zero
+  
+  sh s0, 0(s2)
+  sh s0, 8(s2)
+  addi s2, s2, screen_width
+  sh s0, 0(s2)
+  sh s0, 8(s2)
+  addi s2, s2, screen_width
+  sh s0, 0(s2)
+  sh s0, 4(s2)
+  sh s0, 8(s2)
+  addi s2, s2, screen_width
+  sh s0, 0(s2)
+  sh s0, 4(s2)
+  sh s0, 8(s2)
+  addi s2, s2, screen_width
+  sh s0, 2(s2)
+  sh s0, 6(s2)
+  
+  addi t6, zero, 0x76
+  sb t6, 0(sp)
+  add t6, zero, zero
+  addi sp, sp, 1
+  
+  addi s1, s1, 12
+  ret
+  
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  
+  //write letter x to screen
+  add s2, s1, zero
+  
+  sh s0, 0(s2)
+  sh s0, 8(s2)
+  addi s2, s2, screen_width
+  sh s0, 2(s2)
+  sh s0, 6(s2)
+  addi s2, s2, screen_width
+  sh s0, 4(s2)
+  addi s2, s2, screen_width
+  sh s0, 2(s2)
+  sh s0, 6(s2)
+  addi s2, s2, screen_width
+  sh s0, 0(s2)
+  sh s0, 8(s2)
+  
+  addi t6, zero, 0x77
+  sb t6, 0(sp)
+  add t6, zero, zero
+  addi sp, sp, 1
+  
+  addi s1, s1, 12
+  ret
+  
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  
+  //write letter y to screen
+  add s2, s1, zero
+  
+  sh s0, 0(s2)
+  sh s0, 4(s2)
+  addi s2, s2, screen_width
+  sh s0, 0(s2)
+  sh s0, 4(s2)
+  addi s2, s2, screen_width
+  sh s0, 2(s2)
+  addi s2, s2, screen_width
+  sh s0, 2(s2)
+  addi s2, s2, screen_width
+  sh s0, 2(s2)
+  
+  addi t6, zero, 0x78
+  sb t6, 0(sp)
+  add t6, zero, zero
+  addi sp, sp, 1
+  
+  addi s1, s1, 8
+  ret
+  
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  
+  //write letter z to screen
+  add s2, s1, zero
+  
+  sw s0, 0(s2)
+  sh s0, 4(s2)
+  addi s2, s2, screen_width
+  sh s0, 4(s2)
+  addi s2, s2, screen_width
+  sh s0, 2(s2)
+  addi s2, s2, screen_width
+  sh s0, 0(s2)
+  addi s2, s2, screen_width
+  sw s0, 0(s2)
+  sh s0, 4(s2)
+  
+  addi t6, zero, 0x78
+  sb t6, 0(sp)
+  add t6, zero, zero
+  addi sp, sp, 1
+  
+  addi s1, s1, 8
+  ret
+  
+  
+  
+  
+  
+  
+  
+  
 end_char:
     ebreak // stop continuous execution, request developer interaction
     jal  zero, end_char
