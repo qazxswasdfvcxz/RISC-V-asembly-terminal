@@ -97,14 +97,26 @@ _start:
 loop:
     li   s1, SERIAL_PORT_BASE           // load base address of serial port
 
+//todo list: 
+// add some NOPs between functions to allow edits without having to redo all the jump addresses
+// stop RGB values being recalculated when it is not neccacary
+// BONUS POINTS: only recalculate the colour values that changed instead of all of them
+// add the rest of the letters and backspace, next line, etc
+// add notification if you are trying to write with the colours too close to black
+// store the written text for later use for shell commands, ETC
+// optimise how the letters are found (instead of doing a BEQ of every letter, perhaps a JALR of the letter value to go to another jump that goes to the letter print function, this will stop the nested if:else loops and make all letters have the same processing latency
+
+
+
+
         //start writing to screen
-    li s5, screen_width
     li s6, LCD_FB_START
+    li s5, screen_width
     add s7, s6, zero //s7 is the cursor position
     add s8, s6, zero //s8 is the address of the pixel being written to
     
     
-    nop
+    auipc s11, 0
     //clear registers
     add gp, zero, zero
     add tp, zero, zero
@@ -116,41 +128,84 @@ loop:
     li ra, SPILED_REG_KNOBS_8BIT //load RGB values
     lbu gp, 2(ra)
     lbu tp, 1(ra)
-    lbu t0, 0(ra)
+    lbu t0, 0(ra)  //todo: stop it from recalculating RGB values when there is no need 
     
     srli gp, gp, 3 //divide RGB values by 2
     srli tp, tp, 2
     srli t0, t0, 3
         
-    add t1, t1, t0 //merge RGB values into 1 register (T1 register is RGB value)
+    add t1, t1, t0 //merge RGB values into bottom half of 1 register (T1 register is RGB value)
     slli tp, tp, 5
     add t1, t1, tp
     slli gp, gp, 11
     add t1, t1, gp  
     
-
-    nop
-  //  sw t1, 0(s6)  //test to see if working
+    //duplicate RGB values on top half of register to allow for writing 2 pixels at once
+    add t6, t1, zero  
+    slli t6, t6, 16
+    or t3, t1, t6
+    add t1, zero, t3
+    add t6, zero, zero
     
+  //  sw t1, 0(s6)  //test to see if RGB calcs working
+  
+    //  nop
+      
     li a1, 1 //check for input
     nop
     lb a0, 0(s1)
     bne a0, a1,  0x00000268
-  nop
-  nop
-  nop //check for terminal input (currently only looks for lowercase a)
-  nop
-  li a3, 0x61
+  auipc s10, 0
+  nop 
+  li a3, 0x61 //check for terminal input
   li a2, 0xffffc004
   nop
   lw a4, 0(a2)
-  beq a3, a4, 0x2fc //A
+  beq a3, a4, 0x3b8 //A 
   addi a3, a3, 1
-  beq a3,a4, 0x348 //B
+  beq a3,a4, 0x420 //B
   addi a3, a3, 1
-  beq a3,a4, 0x390 //C
+  beq a3,a4, 0x45c//C
+  addi a3, a3, 1
+  beq a3,a4, 0x494 //D
+  addi a3, a3, 1
+  beq a3,a4, 0x4d0 //E
+  addi a3, a3, 1
+  beq a3,a4, 0x50c //F
+  addi a3, a3, 1
+  beq a3,a4, 0x548 //G 
+  addi a3, a3, 1
+  beq a3,a4, 0x588 //H 
+  addi a3, a3, 1
+  beq a3,a4, 0x5d0 //I 
+  addi a3, a3, 1
+  beq a3,a4, 0x604 //J
+  addi a3, a3, 1
+  beq a3,a4, 0x640 //K 
+  addi a3, a3, 1
+  beq a3,a4, 0x684 //L 
+  addi a3, a3, 1
+  beq a3,a4, 0x6b8 //M 
+  addi a3, a3, 1
+  beq a3,a4, 0x704 //N 
+  addi a3, a3, 1
+  beq a3,a4, 0x750 //O 
+  addi a3, a3, 1
+  beq a3,a4, 0x790 //P 
+  addi a3, a3, 1
+  beq a3,a4, 0x7c8 //Q 
+  addi a3, a3, 1
+  beq a3,a4, 0x80c //R 
   nop
-  nop  //extra space to add more characters later
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop //extra space to add more characters later
   nop
   nop
   nop
@@ -162,8 +217,17 @@ loop:
   nop
   nop
   nop
-  beq zero, zero, 0x284
   nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+jalr zero, s10, 0
+  
   
   nop  //write letter A to screen
   add s8, s7, zero
@@ -172,8 +236,7 @@ loop:
   sh t1, 0(s8)
   sh t1, 4(s8)
   add s8, s5, s8
-  sh t1, 0(s8)
-  sh t1, 2(s8)
+  sw t1, 0(s8)
   sh t1, 4(s8)
   add s8, s5, s8
   sh t1, 0(s8)
@@ -183,38 +246,40 @@ loop:
   sh t1, 4(s8)
   
 addi s7, s7, 8
-add s8, s7, zero
-beq zero, zero, 0x00000220
+jalr zero, s11, 0
 
+nop
+nop
+nop
+nop
+nop
+nop
+nop
+nop
+nop
 
  nop  //write letter B to screen
   add s8, s7, zero
-  sh t1, 0(s8)
-  sh t1, 2(s8)
+  sw t1, 0(s8)
   add s8, s5, s7
   sh t1, 0(s8)
   sh t1, 4(s8)
   add s8, s5, s8
-  sh t1, 0(s8)
-  sh t1, 2(s8)
+  sw t1, 0(s8)
   add s8, s5, s8
   sh t1, 0(s8)
   sh t1, 4(s8)
   add s8, s5, s8
-  sh t1, 0(s8)
-  sh t1, 2(s8)
-  
-  
+  sw t1, 0(s8)
+    
 addi s7, s7, 8
-add s8, s7, zero
-beq zero, zero, 0x00000220
+jalr zero, s11, 0
 
 
  nop  //write letter C to screen
   add s8, s7, zero
 
-  sh t1, 2(s8)
-    sh t1, 4(s8)
+  sw t1, 2(s8)
   add s8, s5, s7
   sh t1, 0(s8)
   add s8, s5, s8
@@ -222,12 +287,285 @@ beq zero, zero, 0x00000220
   add s8, s5, s8
   sh t1, 0(s8)
   add s8, s5, s8
-  sh t1, 2(s8)
+  sw t1, 2(s8)
+  
+addi s7, s7, 8
+jalr zero, s11, 0
+
+ nop  //write letter D to screen
+  add s8, s7, zero
+
+  sw t1, 0(s8)
+  add s8, s5, s7
+  sh t1, 0(s8)  
+  sh t1, 4(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 4(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 4(s8)
+  add s8, s5, s8
+  sw t1, 0(s8)
+  
+addi s7, s7, 8
+jalr zero, s11, 0
+
+
+ nop  //write letter E to screen
+  add s8, s7, zero
+
+  sw t1, 0(s8)
+  sh t1, 4(s8)
+  add s8, s5, s7
+  sh t1, 0(s8)  
+  add s8, s5, s8
+  sw t1, 0(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  add s8, s5, s8
+  sw t1, 0(s8)
   sh t1, 4(s8)
   
 addi s7, s7, 8
-add s8, s7, zero
-beq zero, zero, 0x00000220
+jalr zero, s11, 0
+
+ nop  //write letter F to screen
+  add s8, s7, zero
+
+  sw t1, 0(s8)
+  sh t1, 4(s8)
+  add s8, s5, s7
+  sh t1, 0(s8)  
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 2(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+addi s7, s7, 8
+jalr zero, s11, 0
+
+ nop  //write letter G to screen
+  add s8, s7, zero
+
+  sh t1, 2(s8)
+  sw t1, 4(s8)
+  add s8, s5, s7
+  sh t1, 0(s8) 
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sw t1, 4(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 6(s8) 
+  add s8, s5, s8
+  sw t1, 2(s8)
+  
+addi s7, s7, 10
+jalr zero, s11, 0
+
+ nop  //write letter H to screen
+  add s8, s7, zero
+
+  sh t1, 0(s8)
+  sh t1, 6(s8)
+  add s8, s5, s7
+  sh t1, 0(s8)
+  sh t1, 6(s8)
+  add s8, s5, s8
+  sw t1, 0(s8)
+  sw t1, 4(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 6(s8) 
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 6(s8)
+addi s7, s7, 10
+jalr zero, s11, 0
+
+ nop  //write letter I to screen
+  add s8, s7, zero
+
+  sh t1, 0(s8)
+  add s8, s5, s7
+  sh t1, 0(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+addi s7, s7, 4
+jalr zero, s11, 0
+
+ nop  //write letter J to screen
+  add s8, s7, zero
+  
+  sw t1, 2(s8)
+  add s8, s5, s7
+  sh t1, 4(s8)
+  add s8, s5, s8
+  sh t1, 4(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 4(s8)
+  add s8, s5, s8
+  sh t1, 2(s8)
+  
+addi s7, s7, 8
+jalr zero, s11, 0
+
+ nop  //write letter k to screen
+  add s8, s7, zero
+
+  sh t1, 0(s8)
+  sh t1, 6(s8)
+  add s8, s5, s7
+  sh t1, 0(s8)
+  sh t1, 4(s8)
+  add s8, s5, s8
+  sw t1, 0(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 4(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 6(s8)
+addi s7, s7, 10
+jalr zero, s11, 0
+
+ nop  //write letter L to screen
+  add s8, s7, zero
+
+  sh t1, 0(s8)
+  add s8, s5, s7
+  sh t1, 0(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  add s8, s5, s8
+  sw t1, 0(s8)
+  sh t1, 4(s8)
+addi s7, s7, 8
+jalr zero, s11, 0
+
+ nop  //write letter M to screen
+  add s8, s7, zero
+
+  sh t1, 0(s8)
+  sh t1, 8(s8)
+  add s8, s5, s7
+  sw t1, 0(s8)
+  sw t1, 6(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 4(s8)
+  sh t1, 8(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 8(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 8(s8)
+addi s7, s7, 12
+jalr zero, s11, 0
+
+ nop  //write letter N to screen
+  add s8, s7, zero
+
+  sh t1, 0(s8)
+  sh t1, 8(s8)
+  add s8, s5, s7
+  sw t1, 0(s8)
+  sh t1, 8(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 4(s8)
+  sh t1, 8(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sw t1, 6(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 8(s8)
+addi s7, s7, 12
+jalr zero, s11, 0
+
+ nop  //write letter O to screen
+  add s8, s7, zero
+
+  sw t1, 2(s8)
+  add s8, s5, s7
+  sh t1, 0(s8)
+  sh t1, 6(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 6(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 6(s8)
+  add s8, s5, s8
+  sw t1, 2(s8)
+  
+addi s7, s7, 10
+jalr zero, s11, 0
+
+ nop  //write letter P to screen
+  add s8, s7, zero
+  sw t1, 0(s8)
+  add s8, s5, s7
+  sh t1, 0(s8)
+  sh t1, 4(s8)
+  add s8, s5, s8
+  sw t1, 0(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  
+addi s7, s7, 8
+jalr zero, s11, 0
+
+ nop  //write letter q to screen
+  add s8, s7, zero
+  sw t1, 2(s8)
+  add s8, s5, s7
+  sh t1, 0(s8)
+  sh t1, 6(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 6(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 6(s8)
+  add s8, s5, s8
+  sw t1, 2(s8)
+  sw t1, 6(s8)
+addi s7, s7, 12
+jalr zero, s11, 0
+
+
+ nop  //write letter R to screen
+  add s8, s7, zero
+  sw t1, 0(s8)
+  add s8, s5, s7
+  sh t1, 0(s8)
+  sh t1, 4(s8)
+  add s8, s5, s8
+  sw t1, 0(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 4(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 4(s8)
+  
+addi s7, s7, 8
+jalr zero, s11, 0
 
 
 end_char:
