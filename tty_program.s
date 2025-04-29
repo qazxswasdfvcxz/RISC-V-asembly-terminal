@@ -102,7 +102,8 @@ loop:
  // stop RGB values being recalculated when it is not neccacary
  // BONUS POINTS: only recalculate the colour values that changed instead of all of 
  // them
-
+ //fix occasional crash when deleting spaces
+ //fix some letters not being cleared correctly whenv being deleted
 
 //current WIP (currently not breaking code/causing issues)
 
@@ -141,20 +142,17 @@ loop:
 
     nop
     nop
+    nop
         //start writing to screen
     li s1, LCD_FB_START //s7 is the cursor position
     li s2, LCD_FB_START //s8 is the address of the pixel being written to
     li t0, SPILED_REG_KNOBS_8BIT //load RGB values into ra
     
-    colour_calc:
-    auipc s11, 0
-    
+    colour_calc:    
     
 
     //clear registers
-   // add gp, zero, zero
-   // add tp, zero, zero
-   // add t0, zero, zero
+
     add t1, zero, zero
     
 
@@ -182,7 +180,7 @@ loop:
     add t6, zero, zero
 
     call 0x304
-    jalr zero, s11, 0
+    jal zero, colour_calc
     
     nop
     nop
@@ -229,23 +227,24 @@ loop:
 
 
     
-  //  sw t1, 0(s6)  //test to see if RGB calcs working
-  
-  //  nop
-      
- //   nop  
+  //  sw t1, 0(s6)  //test to see if RGB calcs working 
     nop
     lb a0, 0(s3) //check for input
-    beq a0, zero,  0x0000022c
-    
-  //auipc s10, 0 //is this being used?
+    beq a0, zero, colour_calc  //if there is no new inputs, return
   
   li a2, 0xffffc004  //check for terminal input
-  nop
   lb a4, 0(a2)
   slli a4, a4, 2
-  jalr zero, a4, 0x314
-    
+  jalr zero, a4, chr_code
+  chr_code:
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
     nop
     nop
     nop
@@ -270,7 +269,7 @@ loop:
     nop
     nop
     nop
-    nop //space
+    jal zero, chr_space //space
     nop //!
     nop //"
     nop //#
@@ -1234,18 +1233,30 @@ ret
   nop
   nop
   
-  //delete letter
-  del:
-  li t6, 0x00000001  //0x80000001
-  sub sp, sp, t6 //decrement stack pointer
-  lw a4, 0(sp) //load character from stack
-  sb zero, 0(sp) //delete character from stack
-  slli a4, a4, 2
-  li t2, 0x00000fc8
-  add a3, a4, t2
-  add a4, zero, zero
-  jalr zero, a3, 0
-  ret
+  //write space to screen
+  chr_space:
+    addi t6, zero, 0x20 //load ascii value of this character 
+  sb t6, 0(sp) //pop character into stack
+  add t6, zero, zero //clear register
+  addi sp, sp, 1 //increment stack pointer
+  
+  addi s1, s1, 8
+  ret //return
+  
+  
+    //delete letter
+    del:
+    li t6, 0x00000001  //0x80000001
+    sub sp, sp, t6 //decrement stack pointer
+    lw a4, 0(sp) //load character from stack
+    sb zero, 0(sp) //delete character from stack
+    slli a4, a4, 2
+    li t2, chr_del_enc // 0x00000fc8
+    add a4, a4, t2
+    nop//add a4, zero, zero
+    jalr zero, a4, 0
+    jal zero, colour_calc //  ret
+    chr_del_enc:
     nop
     nop
     nop
@@ -1264,8 +1275,20 @@ ret
     nop
     nop
     nop
-    ebreak
-    nop //space
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    jal zero, dec_eight_wide //space
+    jal zero, dec_eight_wide//this nop shouldn't have to be here, find out why it needs to be here
     nop //!
     nop //"
     nop //#
@@ -1304,7 +1327,7 @@ ret
     nop //D
     nop //E
     nop //F
-    nop //G
+    ebreak //G
     nop //H
     nop //I
     nop //J
@@ -1315,58 +1338,77 @@ ret
     nop //O
     nop //P
     nop //Q
-    nop //R
+    ecall //R
     nop //S
     nop //T
-    nop //U
+    ebreak //U
     nop //V
-    nop //W
-    nop //X
-    nop //Y
-    nop //Z
-    nop //[
+    ecall //W
+    ebreak //X
+    ecall //Y
+    ebreak //Z
+    ecall //[
     nop //\
-    nop //]
+    ebreak //]
     nop //^
     nop //_
-    j 0xfc8 //` --grave accent, use as backspace
-    j 0x5a0 //a
-    j 0x608 //b
-    j 0x668 //c
-    j 0x6c0 //d
-    j 0x724 //e
-    j 0x784 //f
-    j 0x7e4 //g
-ecall//    j 0x848 //h
-    jal zero, dec_four_wide //i
- ecall//   j 0x90c //j
- ecall//   j 0x968 //k
- ecall //  j 0x9e0 //l
-    j 0xa3c //m
-    j 0xaac //n
-    j 0xb1c //o
-    j 0xb80 //p
-    j 0xbdc //q
-    j 0xc44 //r
-    j 0xca8 //s
-    j 0xd00 //t
-    j 0xd5c //u
-    j 0xdc4 //v
-    j 0xe2c //w
-    j 0xea0 //x
-    j 0xf08 //y
-    j 0xf68 //z
+    ecall//` --grave accent, use as backspace
+    jal zero, dec_eight_wide //a
+    jal zero, dec_eight_wide //b
+    jal zero, dec_eight_wide //c
+    jal zero, dec_eight_wide //d
+    jal zero, dec_eight_wide //e
+    jal zero, dec_twelve_wide //f //broken for some reason
+    jal zero, dec_ten_wide//g
+    jal zero, dec_ten_wide//h
+    jal zero, dec_four_wide//i
+    jal zero, dec_eight_wide//j
+    jal zero, dec_ten_wide//k
+    jal zero, dec_eight_wide//l
+    jal zero, dec_twelve_wide//m
+    jal zero, dec_twelve_wide//n
+    jal zero, dec_ten_wide//o
+    jal zero, dec_eight_wide//p
+    jal zero, dec_twelve_wide//q
+    jal zero, dec_eight_wide//r
+    jal zero, dec_eight_wide//s
+    jal zero, dec_eight_wide//t
+    jal zero, dec_ten_wide//u
+    jal zero, dec_twelve_wide//v
+    jal zero, dec_twelve_wide//w
+    jal zero, dec_twelve_wide//x
+    jal zero, dec_eight_wide//y
+    jal zero, dec_eight_wide//z
     nop //{
     nop //|
     nop //}
     nop //~
   
 
-dec_four_wide:
-   li t6, 0x00000004  
+  dec_four_wide:
+  li t6, 0x00000004  
   sub s1, s1, t6 //move character pointer left by two pixels
   
   jal zero, clr_two_at_chr_pointer
+  
+    
+  dec_eight_wide:
+  li t6, 0x00000008  
+  sub s1, s1, t6 
+  
+  jal zero, clr_two_at_chr_pointer_plus_2_px
+  
+  dec_ten_wide:
+  li t6, 0x0000000a
+  sub s1, s1, t6 
+  
+  jal zero, clr_one_at_chr_pointer_plus_4_px
+  
+  dec_twelve_wide:
+  li t6, 0x0000000c
+  sub s1, s1, t6 
+  
+  jal zero, clr_two_at_chr_pointer_plus_4_px
 
 
 clr_two_at_chr_pointer:
@@ -1381,16 +1423,64 @@ clr_two_at_chr_pointer:
   sw zero, 0(s2)
   addi s2, s2, screen_width
   sw zero, 0(s2)
-ebreak
+ret
+
+
+
+
+clr_two_at_chr_pointer_plus_2_px:
+  add s2, s1, zero
+  
+  sw zero, 4(s2)
+  addi s2, s2, screen_width
+  sw zero, 4(s2)
+  addi s2, s2, screen_width
+  sw zero, 4(s2)
+  addi s2, s2, screen_width
+  sw zero, 4(s2)
+  addi s2, s2, screen_width
+  sw zero, 4(s2)
+  
+  jal zero, clr_two_at_chr_pointer
+  
+  
+  
+  clr_one_at_chr_pointer_plus_4_px:
+  add s2, s1, zero
+  
+  sh zero, 6(s2)
+  addi s2, s2, screen_width
+  sh zero, 6(s2)
+  addi s2, s2, screen_width
+  sh zero, 6(s2)
+  addi s2, s2, screen_width
+  sh zero, 6(s2)
+  addi s2, s2, screen_width
+  sh zero, 6(s2)
+  
+  jal zero, clr_two_at_chr_pointer_plus_2_px
+
+  clr_two_at_chr_pointer_plus_4_px:
+  add s2, s1, zero
+  
+  sw zero, 6(s2)
+  addi s2, s2, screen_width
+  sw zero, 6(s2)
+  addi s2, s2, screen_width
+  sw zero, 6(s2)
+  addi s2, s2, screen_width
+  sw zero, 6(s2)
+  addi s2, s2, screen_width
+  sw zero, 6(s2)
+  
+  jal zero, clr_two_at_chr_pointer_plus_2_px
   
   
   
   
-  
-  
-end_char:
+
     ebreak // stop continuous execution, request developer interaction
-    jal  zero, end_char
+
 
 .org 0x400
 .data
