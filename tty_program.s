@@ -99,8 +99,8 @@ loop:
 
 //todo list: 
 // add some NOPs between functions to allow edits without having to redo all the jump addresses
-// stop RGB values being recalculated when it is not neccacary
-// BONUS POINTS: only recalculate the colour values that changed instead of all of them
+//// stop RGB values being recalculated when it is not neccacary
+//// BONUS POINTS: only recalculate the colour values that changed instead of all of them
 // add the rest of the letters and backspace, next line, etc
 // add notification if you are trying to write with the colours too close to black
 // store the written text for later use for shell commands, ETC
@@ -114,38 +114,78 @@ loop:
     li s5, screen_width
     add s7, s6, zero //s7 is the cursor position
     add s8, s6, zero //s8 is the address of the pixel being written to
-    
+    li ra, SPILED_REG_KNOBS_8BIT //load RGB values 
     
     auipc s11, 0
-    //clear registers
-    add gp, zero, zero
-    add tp, zero, zero
-    add t0, zero, zero
-    add t1, zero, zero
     
-
-    //get RGB value
-    li ra, SPILED_REG_KNOBS_8BIT //load RGB values
+    
+ //   add t1, zero, zero //stop colour drifting over multiple imputs
+    nop
+     //get RGB value 
     lbu gp, 2(ra)
-    lbu tp, 1(ra)
-    lbu t0, 0(ra)  //todo: stop it from recalculating RGB values when there is no need 
+    beq gp, a5, 0x00000264
+    add a5, gp, zero
+    srli gp, gp, 3   //divide RGB values by 2
+    slli gp, gp, 11   //merge RGB values into bottom half of 1 register (T1 register is RGB value)
+    or t1, t1, gp
+    j 0x00000264
     
-    srli gp, gp, 3 //divide RGB values by 2
-    srli tp, tp, 2
-    srli t0, t0, 3
-        
-    add t1, t1, t0 //merge RGB values into bottom half of 1 register (T1 register is RGB value)
+    nop
+    nop //free space for future edits 
+    nop
+    nop
+    nop
+    nop
+    
+    nop
+    lbu tp, 1(ra)
+    beq tp, a6,   0x0000029c
+    add a6, tp, zero   
+    srli tp, tp, 2  
     slli tp, tp, 5
-    add t1, t1, tp
-    slli gp, gp, 11
-    add t1, t1, gp  
+    or t1, t1, tp
+    j  0x0000029c
+    
+    nop
+    nop //free space for future edits 
+    nop
+    nop
+    nop
+    nop
+    
+    nop
+    lbu t0, 0(ra)
+    beq tp, a7,  0x000002d0
+    add a7, tp, zero   
+    srli t0, t0, 3 
+    or t1, t1, t0   
+    j  0x000002d0
+    
+    nop
+    nop //free space for future edits 
+    nop
+    nop
+    nop
+    nop
     
     //duplicate RGB values on top half of register to allow for writing 2 pixels at once
-    add t6, t1, zero  
+    nop
+    add t6, t1, zero
     slli t6, t6, 16
     or t3, t1, t6
     add t1, zero, t3
     add t6, zero, zero
+    
+
+   
+ 
+
+
+        
+
+    
+
+
     
   //  sw t1, 0(s6)  //test to see if RGB calcs working
   
@@ -154,80 +194,148 @@ loop:
     li a1, 1 //check for input
     nop
     lb a0, 0(s1)
-    bne a0, a1,  0x00000268
-  auipc s10, 0
-  nop 
-  li a3, 0x61 //check for terminal input
-  li a2, 0xffffc004
+    bne a0, a1,  0x0000022c
+    
+  auipc s10, 0 //is this being used?
+  
+  li a2, 0xffffc004  //check for terminal input
   nop
   lw a4, 0(a2)
-  beq a3, a4, 0x3b8 //A 
-  addi a3, a3, 1
-  beq a3,a4, 0x420 //B
-  addi a3, a3, 1
-  beq a3,a4, 0x45c//C
-  addi a3, a3, 1
-  beq a3,a4, 0x494 //D
-  addi a3, a3, 1
-  beq a3,a4, 0x4d0 //E
-  addi a3, a3, 1
-  beq a3,a4, 0x50c //F
-  addi a3, a3, 1
-  beq a3,a4, 0x548 //G 
-  addi a3, a3, 1
-  beq a3,a4, 0x588 //H 
-  addi a3, a3, 1
-  beq a3,a4, 0x5d0 //I 
-  addi a3, a3, 1
-  beq a3,a4, 0x604 //J
-  addi a3, a3, 1
-  beq a3,a4, 0x640 //K 
-  addi a3, a3, 1
-  beq a3,a4, 0x684 //L 
-  addi a3, a3, 1
-  beq a3,a4, 0x6b8 //M 
-  addi a3, a3, 1
-  beq a3,a4, 0x704 //N 
-  addi a3, a3, 1
-  beq a3,a4, 0x750 //O 
-  addi a3, a3, 1
-  beq a3,a4, 0x790 //P 
-  addi a3, a3, 1
-  beq a3,a4, 0x7c8 //Q 
-  addi a3, a3, 1
-  beq a3,a4, 0x80c //R 
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop //extra space to add more characters later
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-jalr zero, s10, 0
-  
+  slli a4, a4, 2
+  jalr zero, a4, 0x314
+    nop
+    nop //free space for future edits 
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop //spacebar location
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    j 0x530 //a
+    j 0x594 //b
+    j 0x5f4 //c
+    j 0x64c //d
+    j 0x6b0 //e
+    j 0x710 //f
+    j 0x770 //g
+    j 0x7d4 //h
+    j 0x840 //i
+    j 0x898 //j
+    j 0x8f4 //k
+    j 0x95c //l
+    j 0x9b8 //m
+    j 0xa28 //n
+    j 0xa98 //o
+    j 0xafc //p
+    j 0xb58 //q
+    j 0xbc0 //r
+    j 0xc24 //s
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop  //extra space to add more characters later
   
   nop  //write letter A to screen
   add s8, s7, zero
@@ -248,17 +356,17 @@ jalr zero, s10, 0
 addi s7, s7, 8
 jalr zero, s11, 0
 
-nop
-nop
-nop
-nop
-nop
-nop
-nop
-nop
-nop
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
 
- nop  //write letter B to screen
+  nop  //write letter B to screen
   add s8, s7, zero
   sw t1, 0(s8)
   add s8, s5, s7
@@ -275,6 +383,15 @@ nop
 addi s7, s7, 8
 jalr zero, s11, 0
 
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
 
  nop  //write letter C to screen
   add s8, s7, zero
@@ -291,6 +408,16 @@ jalr zero, s11, 0
   
 addi s7, s7, 8
 jalr zero, s11, 0
+
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
 
  nop  //write letter D to screen
   add s8, s7, zero
@@ -311,6 +438,15 @@ jalr zero, s11, 0
 addi s7, s7, 8
 jalr zero, s11, 0
 
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
 
  nop  //write letter E to screen
   add s8, s7, zero
@@ -330,7 +466,17 @@ jalr zero, s11, 0
 addi s7, s7, 8
 jalr zero, s11, 0
 
- nop  //write letter F to screen
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  
+  nop  //write letter F to screen
   add s8, s7, zero
 
   sw t1, 0(s8)
@@ -347,6 +493,16 @@ jalr zero, s11, 0
 addi s7, s7, 8
 jalr zero, s11, 0
 
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  
  nop  //write letter G to screen
   add s8, s7, zero
 
@@ -366,6 +522,16 @@ jalr zero, s11, 0
 addi s7, s7, 10
 jalr zero, s11, 0
 
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  
  nop  //write letter H to screen
   add s8, s7, zero
 
@@ -386,6 +552,16 @@ jalr zero, s11, 0
 addi s7, s7, 10
 jalr zero, s11, 0
 
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  
  nop  //write letter I to screen
   add s8, s7, zero
 
@@ -401,6 +577,16 @@ jalr zero, s11, 0
 addi s7, s7, 4
 jalr zero, s11, 0
 
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  
  nop  //write letter J to screen
   add s8, s7, zero
   
@@ -418,6 +604,16 @@ jalr zero, s11, 0
 addi s7, s7, 8
 jalr zero, s11, 0
 
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  
  nop  //write letter k to screen
   add s8, s7, zero
 
@@ -437,6 +633,16 @@ jalr zero, s11, 0
 addi s7, s7, 10
 jalr zero, s11, 0
 
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  
  nop  //write letter L to screen
   add s8, s7, zero
 
@@ -453,6 +659,16 @@ jalr zero, s11, 0
 addi s7, s7, 8
 jalr zero, s11, 0
 
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  
  nop  //write letter M to screen
   add s8, s7, zero
 
@@ -474,6 +690,16 @@ jalr zero, s11, 0
 addi s7, s7, 12
 jalr zero, s11, 0
 
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  
  nop  //write letter N to screen
   add s8, s7, zero
 
@@ -495,6 +721,16 @@ jalr zero, s11, 0
 addi s7, s7, 12
 jalr zero, s11, 0
 
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  
  nop  //write letter O to screen
   add s8, s7, zero
 
@@ -514,6 +750,16 @@ jalr zero, s11, 0
 addi s7, s7, 10
 jalr zero, s11, 0
 
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  
  nop  //write letter P to screen
   add s8, s7, zero
   sw t1, 0(s8)
@@ -530,6 +776,16 @@ jalr zero, s11, 0
 addi s7, s7, 8
 jalr zero, s11, 0
 
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  
  nop  //write letter q to screen
   add s8, s7, zero
   sw t1, 2(s8)
@@ -548,7 +804,16 @@ jalr zero, s11, 0
 addi s7, s7, 12
 jalr zero, s11, 0
 
-
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  
  nop  //write letter R to screen
   add s8, s7, zero
   sw t1, 0(s8)
@@ -567,6 +832,55 @@ jalr zero, s11, 0
 addi s7, s7, 8
 jalr zero, s11, 0
 
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  
+ nop  //write letter s to screen
+  add s8, s7, zero
+  sw t1, 2(s8)
+  add s8, s5, s7
+  sh t1, 0(s8)
+  add s8, s5, s8
+  sh t1, 2(s8)
+  add s8, s5, s8
+  sh t1, 4(s8)
+  add s8, s5, s8
+  sw t1, 0(s8)
+  
+addi s7, s7, 8
+jalr zero, s11, 0
+
+  nop //free space for future edits 
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  
+ ecall  //write letter t to screen
+  add s8, s7, zero
+  sw t1, 2(s8)
+  add s8, s5, s7
+  sh t1, 0(s8)
+  add s8, s5, s8
+  sh t1, 2(s8)
+  add s8, s5, s8
+  sh t1, 4(s8)
+  add s8, s5, s8
+  sw t1, 0(s8)
+  
+addi s7, s7, 8
+jalr zero, s11, 0
 
 end_char:
     ebreak // stop continuous execution, request developer interaction
