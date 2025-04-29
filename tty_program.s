@@ -97,7 +97,21 @@ _start:
 loop:
     li   s1, SERIAL_PORT_BASE           // load base address of serial port
 
+        //start writing to screen
+    li s5, screen_width
+    li s6, LCD_FB_START
+    add s7, s6, zero //s7 is the cursor position
+    add s8, s6, zero //s8 is the address of the pixel being written to
     
+    
+    nop
+    //clear registers
+    add gp, zero, zero
+    add tp, zero, zero
+    add t0, zero, zero
+    add t1, zero, zero
+    
+
     //get RGB value
     li ra, SPILED_REG_KNOBS_8BIT //load RGB values
     lbu gp, 2(ra)
@@ -114,16 +128,14 @@ loop:
     slli gp, gp, 11
     add t1, t1, gp  
     
-    //start writing to screen
-    li s5, screen_width
-    li s6, LCD_FB_START
-    
-    sw t1, 0(s6)
+
+    nop
+  //  sw t1, 0(s6)  //test to see if working
     
     li a1, 1 //check for input
     nop
     lb a0, 0(s1)
-    bne a0, a1,  0x00000258
+    bne a0, a1,  0x00000268
   nop
   nop
   nop //check for terminal input (currently only looks for lowercase a)
@@ -136,10 +148,22 @@ loop:
   nop
   nop
   nop
-  nop
-  sw t1, 8(s6)
-  
-
+  nop  //write letter to screen
+  add s8, s7, zero
+  sh t1, 2(s8)
+  add s8, s5, s7
+  sh t1, 0(s8)
+  sh t1, 4(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 2(s8)
+  sh t1, 4(s8)
+  add s8, s5, s8
+  sh t1, 0(s8)
+  sh t1, 4(s8)
+addi s7, s7, 8
+add s8, s7, zero
+beq zero, zero, 0x00000220
 end_char:
     ebreak // stop continuous execution, request developer interaction
     jal  zero, end_char
