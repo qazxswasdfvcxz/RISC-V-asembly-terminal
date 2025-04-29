@@ -14,7 +14,7 @@
 #pragma qtrvsim show registers
 #pragma qtrvsim show memory
 
-.globl _start0
+
 .globl __start
 .option norelax
 
@@ -99,7 +99,9 @@ loop:
 
 //todo list: 
  // add notification if you are trying to write with the colours too close to black
-
+ // stop RGB values being recalculated when it is not neccacary
+ // BONUS POINTS: only recalculate the colour values that changed instead of all of 
+ // them
 
 
 //current WIP (currently not breaking code/causing issues)
@@ -120,11 +122,7 @@ loop:
 // ---- currently the colour calc and letters A, B work. Have not finished 
 // reallocating all the registers
 
-// stop RGB values being recalculated when it is not neccacary
-// BONUS POINTS: only recalculate the colour values that changed instead of all of 
-// them   ---- changing colours mid-runtime is half-broken, the colours only change  
-// if it is increasing the RGB value, any decrease in RGB value is ignored. The
-// cause of this bug has not been found ---- UPDATE: kind of fixed, works every other repetition
+
 
 
 
@@ -142,76 +140,75 @@ loop:
     auipc s11, 0
     
     
-    nop
-     //get RGB value 
-    lbu t1, 2(t0) //load colour value (this one is red)
-    beq t1, t2, 0x00000264 //check to see if the colour has changed
-    add t2, t1, zero //if the colour has changed, save the new colour to refrence next time
-    srli t2, t2, 3   //divide RGB values by 2
-    slli t1, t1, 11 
+
+    //clear registers
+    add gp, zero, zero
+    add tp, zero, zero
+    add t0, zero, zero
+    add t1, zero, zero
     
-    li a7, 0x7f800  //clear previou255s value from T1 register 
-    xor s0, s0, a7
+
+    //get RGB value
+    li ra, SPILED_REG_KNOBS_8BIT //load RGB values
+    lbu gp, 2(ra)
+    lbu tp, 1(ra)
+    lbu t0, 0(ra)  //todo: stop it from recalculating RGB values when there is no need 
     
-    or s0, s0, t1  //merge RGB values into bottom half of 1 register (T1 register is RGB value)
-    j 0x00000264 
+    srli gp, gp, 3 //divide RGB values by 2
+    srli tp, tp, 2
+    srli t0, t0, 3
+        
+    add t1, t1, t0 //merge RGB values into bottom half of 1 register (T1 register is RGB value)
+    slli tp, tp, 5
+    add t1, t1, tp
+    slli gp, gp, 11
+    add t1, t1, gp  
     
-    nop //free space for future edits 
-    nop  
-    nop 
-    nop
-    
-    lbu t3, 1(t0)
-    beq t3, t4,   0x0000029c
-    add t4, t3, zero   
-    srli t3, t3, 2  
-    slli t3, t3, 5
-    
-    li a7, 0x7e0
-    xor s0, s0, a7
-   
-    or s0, s0, t3
-    
-    j  0x000002a0
-    
-    nop
-    nop //free space for future edits 
-    nop
-    nop
-    nop
-    
-    lbu t4, 0(t0)
-    beq t4, t5,  0x000002d0
-    add t5, t4, zero   
-    srli t4, t4, 3
-    
-    li a7, 0x1f
-    xor s0, s0, a7
-    
-    or s0, s0, t4
-    j  0x000002e0
-    
-   // nop
-    nop //free space for future edits 
-    nop
-    nop
-    nop    
-    nop
-    nop 
-    nop
     //duplicate RGB values on top half of register to allow for writing 2 pixels at once
-    
-    
-    lui a7, 0xffff0
-    //ecall
-    xor s0, s0, a7
-    
-    add t5, s0, zero
-    slli t5, t5, 16
-    or s0, s0, t5
+    add t6, t1, zero  
+    slli t6, t6, 16
+    or s0, t1, t6
+    add t1, zero, t3
+    add t6, zero, zero
+
     call 0x304
     jalr zero, s11, 0
     
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
    
  
 
