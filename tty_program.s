@@ -124,7 +124,7 @@ loop:
 // BONUS POINTS: only recalculate the colour values that changed instead of all of 
 // them   ---- changing colours mid-runtime is half-broken, the colours only change  
 // if it is increasing the RGB value, any decrease in RGB value is ignored. The
-// cause of this bug has not been found
+// cause of this bug has not been found ---- UPDATE: kind of fixed, works every other repetition
 
 
 
@@ -144,60 +144,72 @@ loop:
     
     nop
      //get RGB value 
-    lbu t1, 2(t0) //load colour value
+    lbu t1, 2(t0) //load colour value (this one is red)
     beq t1, t2, 0x00000264 //check to see if the colour has changed
     add t2, t1, zero //if the colour has changed, save the new colour to refrence next time
     srli t2, t2, 3   //divide RGB values by 2
-    slli t1, t1, 11   //merge RGB values into bottom half of 1 register (T1 register is RGB value)
-    or s0, s0, t1
-    j 0x00000264
+    slli t1, t1, 11 
     
-    nop
+    li a7, 0x7f800  //clear previou255s value from T1 register 
+    xor s0, s0, a7
+    
+    or s0, s0, t1  //merge RGB values into bottom half of 1 register (T1 register is RGB value)
+    j 0x00000264 
+    
     nop //free space for future edits 
-    nop
-    nop
-    nop
+    nop  
+    nop 
     nop
     
-    nop
     lbu t3, 1(t0)
     beq t3, t4,   0x0000029c
     add t4, t3, zero   
     srli t3, t3, 2  
     slli t3, t3, 5
+    
+    li a7, 0x7e0
+    xor s0, s0, a7
+   
     or s0, s0, t3
-    j  0x0000029c
+    
+    j  0x000002a0
     
     nop
     nop //free space for future edits 
     nop
     nop
     nop
-    nop
     
-    nop
     lbu t4, 0(t0)
     beq t4, t5,  0x000002d0
     add t5, t4, zero   
-    srli t4, t4, 3 
-    or s0, s0, t4
-    j  0x000002d0
+    srli t4, t4, 3
     
-    nop
+    li a7, 0x1f
+    xor s0, s0, a7
+    
+    or s0, s0, t4
+    j  0x000002e0
+    
+   // nop
     nop //free space for future edits 
     nop
     nop
+    nop    
     nop
+    nop 
     nop
-    
     //duplicate RGB values on top half of register to allow for writing 2 pixels at once
-    nop
+    
+    
+    lui a7, 0xffff0
+    //ecall
+    xor s0, s0, a7
+    
     add t5, s0, zero
     slli t5, t5, 16
     or s0, s0, t5
-//    add s0, zero, t3
-//    add t6, zero, zero
-    call 0x2ec
+    call 0x304
     jalr zero, s11, 0
     
    
@@ -212,9 +224,9 @@ loop:
     
   //  sw t1, 0(s6)  //test to see if RGB calcs working
   
-    nop
+  //  nop
       
-    nop  
+ //   nop  
     nop
     lb a0, 0(s3) //check for input
     beq a0, zero,  0x0000022c
