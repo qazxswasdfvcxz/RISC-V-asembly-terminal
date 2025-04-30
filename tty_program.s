@@ -36,6 +36,7 @@
 .equ SERP_TX_ST_REG_o,          0x0008 // Offset of TX_ST_REG
 .equ SERP_TX_ST_REG_READY_m,       0x1 // Transmitter can accept next byte
 .equ SERP_TX_ST_REG_IE_m,          0x2 // Enable Tx ready interrupt
+// MZ_APO education Zynq based board developed
 
 .equ SERP_TX_DATA_REG,      0xffffc00c // Write word to send 8 LSB bits to terminal
 .equ SERP_TX_DATA_REG_o,        0x000c // Offset of TX_DATA_REG
@@ -99,7 +100,11 @@ loop:
 
 // todo list: 
 
+// add font size
 
+// print the characters to the terminal as well as the screen
+
+// take advantage of software interrupts? (read/write to file, etc)
 
 
 // current WIP (currently not breaking code/causing issues)
@@ -150,6 +155,8 @@ loop:
 // add notification if you have text colour too close to black ---- currently only
 // activates on pure black, currently spams terminal with warnings ----FIXED & FULLY implemted
 
+// LED RGB 1 now shows the text colour
+
 
 
     //start writing to screen      
@@ -184,14 +191,14 @@ loop:
     bne s6, t6, colour_merge
     
     
-    call edge_case_handler_1
+    jal zero, edge_case_handler_1
     
     
     colour_merge:
     
     
     add s6, t6, zero
-    
+    lw t4, 0(t4) //all colours for LED RGB 1 output
     
     
     blue_calc:
@@ -205,7 +212,6 @@ loop:
         
     srli t1, t1, 3
     or t0, t0, t1 //merge RGB values into bottom half of 1 register (T1 register is RGB value)
-    
     
     
     
@@ -223,13 +229,13 @@ loop:
     slli t2, t2, 5
     add t0, t0, t2
     
-    
+
     
     red_calc:
     
     not t5, zero
     srai t5, t5, 3 //divide RGB values by 2
-   slli t5, t5, 11
+    slli t5, t5, 11
     not t5, t5
     
        
@@ -237,7 +243,10 @@ loop:
     slli t3, t3, 11
     add t0, t0, t3  
     
+
     
+    li t6, SPILED_REG_LED_RGB1
+    sw t4, 0(t6)
     
     //duplicate RGB values on top half of register to allow for writing 2 pixels at once
     upper_duplicate:
@@ -246,7 +255,8 @@ loop:
     or s0, t0, t6
     //add t1, zero, zero
     //add t6, zero, zero
-
+    
+    
     
     call edge_case_handler_1
     jal zero, colour_calc
@@ -291,7 +301,7 @@ loop:
     
     
     ebreak
-    colour_warning_text_1: .asciz  "WARNING: you have not chosen a text colour\n"// store zero terminated ASCII text
+    colour_warning_text_1: .asciz  "WARNING:you have not chosen a text colour\n" // store zero terminated ASCII text
     ebreak
     
     
@@ -300,10 +310,11 @@ loop:
     colour_warning_1: 
     bne s0, zero, colour_warning_2
     la a1, colour_warning_text_1 // load address of text
-    jal zero, serial_write
-    
+    add t6, ra, zero
+    call serial_write
+    add ra, t6, zero
     add a1, zero, zero
-    jal zero, colour_warning_2
+    jal zero, colour_warning_ret
     
     ebreak
     colour_warning_text_2: .asciz  "WARNING: text colour may be too dark to see\n"    // store zero terminated ASCII text
@@ -314,11 +325,13 @@ loop:
     li t1, 0x20
     bgt s6, t1, colour_warning_ret
     la a1, colour_warning_text_2 // load address of text
-    jal zero, serial_write
-    
+    add t6, ra, zero
+    call serial_write
+    add ra, t6, zero
     add a1, zero, zero
+    
     colour_warning_ret:
-    ret
+    jal zero, serial_write
     
 
 
@@ -375,135 +388,135 @@ input_check:
   slli t3, t3, 2 //multiply to align with instruction addresses
   jalr zero, t3, chr_code //indirect jump to write character
   chr_code:
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop //free space for future edits 
-    nop
-    nop
-    nop
-    ret
-    jal zero, chr_space //space
-    nop //!
-    nop //"
-    nop //#
-    nop //$
-    nop //%
-    nop //&
-    nop //' --apostraphe
-    nop //(
-    nop //)
-    nop //*
-    nop //+
-    nop //,
-    nop //-
-    nop //.
-    nop ///
-    nop //0
-    nop //1
-    nop //2
-    nop //3
-    nop //4
-    nop //5
-    nop //6
-    nop //7
-    nop //8
-    nop //9
-    nop //:
-    jal zero, chr_newline //; --semicolon, use as enter/newline
-    nop //<
-    nop //=
-    nop //>
-    nop //?
-    nop //@
-    nop //A
-    nop //B
-    nop //C
-    nop //D
-    nop //E
-    nop //F
-    nop //G
-    nop //H
-    nop //I
-    nop //J
-    nop //K
-    nop //L
-    nop //M
-    nop //N
-    nop //O
-    nop //P
-    nop //Q
-    nop //R
-    nop //S
-    nop //T
-    nop //U
-    nop //V
-    nop //W
-    nop //X
-    nop //Y
-    nop //Z
-    nop //[
-    nop //\
-    nop //]
-    nop //^
-    ret //_
-    jal zero, del //` --grave accent, use as backspace
-    jal zero, chr_A //a
-    jal zero, chr_B //b
-    jal zero, chr_C //c
-    jal zero, chr_D //d
-    jal zero, chr_E //e
-    jal zero, chr_F //f
-    jal zero, chr_G //g
-    jal zero, chr_H //h
-    jal zero, chr_I //i
-    jal zero, chr_J //j
-    jal zero, chr_K //k
-    jal zero, chr_L //l
-    jal zero, chr_M //m
-    jal zero, chr_N //n
-    jal zero, chr_O //o
-    jal zero, chr_P //p
-    jal zero, chr_Q //q
-    jal zero, chr_R //r
-    jal zero, chr_S //s
-    jal zero, chr_T //t
-    jal zero, chr_U //u
-    jal zero, chr_V //v
-    jal zero, chr_W //w
-    jal zero, chr_X //x
-    jal zero, chr_Y //y
-    jal zero, chr_Z //z
-    nop //{
-    nop //|
-    nop //}
-    ret //~
-    nop
-    nop
+    nop // null
+    nop // start of heading
+    nop // start of text
+    nop // end of text
+    nop // end of transmission
+    nop // enquiry
+    nop // acknowledge
+    nop // bell
+    jal zero, del // backspace
+    jal zero, chr_space // horizantal tab
+    nop // line feed
+    jal zero, chr_newline // vertical tab
+    nop // form feed
+    nop // carriage return
+    nop // shift out
+    nop // shift in
+    nop // data link escape
+    nop // device control 1
+    nop // device control 2
+    nop // device control 3
+    nop // device control 4
+    nop // negative acknowledge
+    nop // synchronous idle
+    nop // end of trans. block
+    nop // cancel
+    nop // end of medium
+    nop // substitute
+    nop // escape
+    nop // file seperator
+    nop // group seperator
+    nop // record seperator
+    ret // unit seperator
+    jal zero, chr_space // space
+    nop // !
+    nop // "
+    nop // #
+    nop // $
+    nop // %
+    nop // &
+    nop // ' --apostraphe
+    nop // (
+    nop // )
+    nop // *
+    nop // +
+    nop // ,
+    nop // -
+    ebreak // .
+    nop // /
+    nop // 0
+    nop // 1
+    nop // 2
+    nop // 3
+    nop // 4
+    nop // 5
+    nop // 6
+    nop // 7
+    nop // 8
+    nop // 9
+    ebreak // :
+    jal zero, chr_newline // ; --semicolon, use as enter/newline
+    nop // <
+    nop // =
+    nop // >
+    nop // ?
+    ebreak // @
+    jal zero, chr_A // A
+    jal zero, chr_B // B
+    jal zero, chr_C // C
+    jal zero, chr_D // D
+    jal zero, chr_E // E
+    jal zero, chr_F // F
+    jal zero, chr_G // G
+    jal zero, chr_H // H
+    jal zero, chr_I // I
+    jal zero, chr_J // J
+    jal zero, chr_K // K
+    jal zero, chr_L // L
+    jal zero, chr_M // M
+    jal zero, chr_N // N
+    jal zero, chr_O // O
+    jal zero, chr_P // P
+    jal zero, chr_Q // Q
+    jal zero, chr_R // R
+    jal zero, chr_S // S
+    jal zero, chr_T // T
+    jal zero, chr_U // U
+    jal zero, chr_V // V
+    jal zero, chr_W // W
+    jal zero, chr_X // X
+    jal zero, chr_Y // Y
+    jal zero, chr_Z // Z
+    nop // [
+    nop // \
+    nop // ]
+    nop // ^
+    ret // _
+    jal zero, del // ` --grave accent, use as backspace
+    jal zero, chr_A // a
+    jal zero, chr_B // b
+    jal zero, chr_C // c
+    jal zero, chr_D // d
+    jal zero, chr_E // e
+    jal zero, chr_F // f
+    jal zero, chr_G // g
+    jal zero, chr_H // h
+    jal zero, chr_I // i
+    jal zero, chr_J // j
+    jal zero, chr_K // k
+    jal zero, chr_L // l
+    jal zero, chr_M // m
+    jal zero, chr_N // n
+    jal zero, chr_O // o
+    jal zero, chr_P // p
+    jal zero, chr_Q // q
+    jal zero, chr_R // r
+    jal zero, chr_S // s
+    jal zero, chr_T // t
+    jal zero, chr_U // u
+    jal zero, chr_V // v
+    jal zero, chr_W // w
+    jal zero, chr_X // x
+    jal zero, chr_Y // y
+    jal zero, chr_Z // z
+    nop // {
+    nop // |
+    nop // }
+    ret // ~
+    jal zero, del // delete
+    ebreak
     nop
     nop 
     nop
