@@ -201,7 +201,7 @@ loop:
     
     
     add s6, t6, zero
-    lw t4, 0(t4) //all colours for LED RGB 1 output
+    
     
     
     blue_calc:
@@ -211,13 +211,20 @@ loop:
     not t5, zero //bit mask blue value
     srli t5, t5, 4
     not t5, t5
-    and s0, s0, t5
-    and s4, s4, t5
+    and s0, s0, t5 //bit mask main colour
+    and s4, s4, t5 //bit mask antiailiasing colour 1
+    and s7, s7, t5 //bit mask antiailiasing colour 2
     
-    li t6, 0x3 //calculate antiailiasing colour 1
+    li t6, 0x3 //calculate antiailiasing colour 1 (stored in S4)
     div t0, t1, t6
     srli t0, t0, 3
     or s4, s4, t0
+    
+    li t6, 0x5
+    div t0, t1, t6 //calculate antiailiasing colour 2 (stored in S7)
+    srli t0, t0, 3
+    or s7, s7, t0
+    
     
     srli t1, t1, 3
     or s0, s0, t1 //merge RGB values into bottom half of 1 register (T1 register is RGB value)
@@ -233,12 +240,19 @@ loop:
     not t5, t5
     and s0, s0, t5
     and s4, s4, t5
+    and s7, s7, t5
     
+    li t6, 0x3
     div t0, t2, t6 //calculate antiailiasing colour 1
     srli t0, t0, 2
     slli t0, t0, 5
     or s4, s4, t0
     
+    li t6, 0x5
+    div t0, t2, t6 //calculate antiailiasing colour 2
+    srli t0, t0, 2
+    slli t0, t0, 5
+    or s7, s7, t0
 
     srli t2, t2, 2 
     slli t2, t2, 5
@@ -255,11 +269,21 @@ loop:
     
     and s0, s0, t5
     and s4, s4, t5
+    and s7, s7, t5
     
+    
+    li t6, 0x3
     div t0, t3, t6 //calculate antiailiasing colour
     srli t0, t0, 3 
     slli t0, t0, 11
     or s4, s4, t0   
+    
+    li t6, 0x5
+    div t0, t3, t6 //calculate antiailiasing colour
+    srli t0, t0, 3 
+    slli t0, t0, 11
+    or s7, s7, t0 
+    
        
     srli t3, t3, 3 //divide RGB values by 2
     slli t3, t3, 11
@@ -267,8 +291,6 @@ loop:
     
 
     
-    li t6, SPILED_REG_LED_RGB1
-    sw t4, 0(t6)
     
     //duplicate RGB values on top half of register to allow for writing 2 pixels at once
     upper_duplicate:
@@ -278,13 +300,17 @@ loop:
     //add t1, zero, zero
     //add t6, zero, zero
     
-    add t6, s0, zero  
+    add t6, s4, zero  
     slli t6, t6, 16
-    or s0, s0, t6
+    or s4, s4, t6
 
+    add t6, s7, zero  
+    slli t6, t6, 16
+    or s7, s7, t6
     
-    
-    
+    lw t4, 0(t4) //all colours for LED RGB 1 output
+    li t6, SPILED_REG_LED_RGB1
+    sw t4, 0(t6)
     
     call edge_case_handler_1
     jal zero, colour_calc
@@ -470,7 +496,7 @@ input_check:
     jal zero, chr_dash // -
     jal zero, chr_period // .
     jal zero, chr_slash // /
-    jal zero, chr_0 // 0
+    ebreak //jal zero, chr_0 // 0
     jal zero, chr_1 // 1
     jal zero, chr_2 // 2
     jal zero, chr_3 // 3
@@ -487,7 +513,7 @@ input_check:
     nop // >
     nop // ?
     ebreak // @
-    jal zero, chr_A // A
+    jal zero, chr_big_A // A
     jal zero, chr_B // B
     jal zero, chr_C // C
     jal zero, chr_D // D
@@ -802,7 +828,7 @@ input_check:
   sw s0, 2(s2)
   sh s4, 6(s2)
   
-  addi t6, zero, 0x66
+  addi t6, zero, 0x67
   sb t6, 0(sp)
   add t6, zero, zero
   addi sp, sp, 1
@@ -836,7 +862,7 @@ input_check:
   sh s0, 0(s2)
   sh s0, 6(s2)
   
-  addi t6, zero, 0x67
+  addi t6, zero, 0x68
   sb t6, 0(sp)
   add t6, zero, zero
   addi sp, sp, 1
@@ -865,7 +891,7 @@ input_check:
   addi s2, s2, screen_width
   sh s0, 0(s2)
   
-    addi t6, zero, 0x68
+    addi t6, zero, 0x69
   sb t6, 0(sp)
   add t6, zero, zero
   addi sp, sp, 1
@@ -898,7 +924,7 @@ input_check:
   sh s0, 2(s2)
   sh s4, 4(s2)
   
-  addi t6, zero, 0x69
+  addi t6, zero, 0x6a
   sb t6, 0(sp)
   add t6, zero, zero
   addi sp, sp, 1
@@ -934,7 +960,7 @@ input_check:
   sh s4, 4(s2)
   sh s0, 6(s2)
   
-  addi t6, zero, 0x6a
+  addi t6, zero, 0x6b
   sb t6, 0(sp)
   add t6, zero, zero
   addi sp, sp, 1
@@ -968,7 +994,7 @@ input_check:
   sw s0, 0(s2)
   sh s0, 4(s2)
   
-  addi t6, zero, 0x6b
+  addi t6, zero, 0x6c
   sb t6, 0(sp)
   add t6, zero, zero
   addi sp, sp, 1
@@ -1005,7 +1031,7 @@ input_check:
   sh s0, 0(s2)
   sh s0, 8(s2)
   
-  addi t6, zero, 0x6c
+  addi t6, zero, 0x6d
   sb t6, 0(sp)
   add t6, zero, zero
   addi sp, sp, 1
@@ -1043,7 +1069,7 @@ input_check:
   sh s4, 6(s2)
   sh s0, 8(s2)
   
-  addi t6, zero, 0x6d
+  addi t6, zero, 0x6e
   sb t6, 0(sp)
   add t6, zero, zero
   addi sp, sp, 1
@@ -1079,7 +1105,7 @@ input_check:
   sw s0, 2(s2)
   sh s4, 6(s2)
   
-  addi t6, zero, 0x6e
+  addi t6, zero, 0x6f
   sb t6, 0(sp)
   add t6, zero, zero
   addi sp, sp, 1
@@ -1111,7 +1137,7 @@ input_check:
   addi s2, s2, screen_width
   sh s0, 0(s2)
   
-  addi t6, zero, 0x6f
+  addi t6, zero, 0x70
   sb t6, 0(sp)
   add t6, zero, zero
   addi sp, sp, 1
@@ -1146,7 +1172,7 @@ input_check:
   sw s0, 2(s2)
   sw s0, 6(s2)
   
-  addi t6, zero, 0x70
+  addi t6, zero, 0x71
   sb t6, 0(sp)
   add t6, zero, zero
   addi sp, sp, 1
@@ -1180,7 +1206,7 @@ input_check:
   sh s0, 0(s2)
   sh s0, 4(s2)
   
-  addi t6, zero, 0x71
+  addi t6, zero, 0x72
   sb t6, 0(sp)
   add t6, zero, zero
   addi sp, sp, 1
@@ -1211,7 +1237,7 @@ input_check:
   sw s0, 0(s2)
   sh s4, 4(s2)
   
-  addi t6, zero, 0x72
+  addi t6, zero, 0x73
   sb t6, 0(sp)
   add t6, zero, zero
   addi sp, sp, 1
@@ -1241,7 +1267,7 @@ input_check:
   addi s2, s2, screen_width
   sh s0, 2(s2)
   
-  addi t6, zero, 0x73
+  addi t6, zero, 0x74
   sb t6, 0(sp)
   add t6, zero, zero
   addi sp, sp, 1
@@ -1276,7 +1302,7 @@ input_check:
   sw s0, 2(s2)
   sh s4, 6(s2)
   
-  addi t6, zero, 0x74
+  addi t6, zero, 0x75
   sb t6, 0(sp)
   add t6, zero, zero
   addi sp, sp, 1
@@ -1313,7 +1339,7 @@ input_check:
   sh s0, 4(s2)
   sh s4, 6(s2)
   
-  addi t6, zero, 0x75
+  addi t6, zero, 0x76
   sb t6, 0(sp)
   add t6, zero, zero
   addi sp, sp, 1
@@ -1352,7 +1378,7 @@ input_check:
   sh s0, 6(s2)
   sh s4, 8(s2)
   
-  addi t6, zero, 0x76
+  addi t6, zero, 0x77
   sb t6, 0(sp)
   add t6, zero, zero
   addi sp, sp, 1
@@ -1393,7 +1419,7 @@ input_check:
 
   sh s0, 8(s2)
   
-  addi t6, zero, 0x77
+  addi t6, zero, 0x78
   sb t6, 0(sp)
   add t6, zero, zero
   addi sp, sp, 1
@@ -1426,7 +1452,7 @@ input_check:
   addi s2, s2, screen_width
   sh s0, 2(s2)
   
-  addi t6, zero, 0x78
+  addi t6, zero, 0x79
   sb t6, 0(sp)
   add t6, zero, zero
   addi sp, sp, 1
@@ -1459,7 +1485,7 @@ input_check:
   sw s0, 0(s2)
   sh s0, 4(s2)
   
-  addi t6, zero, 0x78
+  addi t6, zero, 0x7a
   sb t6, 0(sp)
   add t6, zero, zero
   addi sp, sp, 1
@@ -1499,10 +1525,11 @@ input_check:
   sh t5, 0(t3)  //store newline stack pointer back
   
   li t1, screen_width
-  addi s4, s4, 0x8 //s4 is current cursor height (how many pixels down from the top)
-  mul t1, t1, s4 //multiply the cursor height by the screen width to get the offset that is needed to go that many pixels down
+  addi s5, s5, 0x7 //s4 is current cursor height (how many pixels down from the top)
+  mul t3, t1, s5
+  //multiply the cursor height by the screen width to get the offset that is needed to go that many pixels down
   li t4, LCD_FB_START
-  add s1, t1, t4 //add the offset to the value of the screen start and store it in the cursor position
+  add s1, t3, t4 //add the offset to the value of the screen start and store it in the cursor position
   jal zero, colour_calc //return
   
   
@@ -1580,11 +1607,11 @@ input_check:
     jal zero, dec_ten_wide //8
     jal zero, dec_eight_wide //9
     jal zero, dec_four_wide //:
-    jal zero, del_newline //; --semicolon, use as enter/newline
-    ebreak //<
-    ebreak //=
-    ebreak //>
-    ebreak //?
+    jal zero, del_newline //; --semicolon, use as newline
+    nop // <
+    nop // =
+    nop // >
+    nop // ?
     ebreak //@
     ebreak //A
     ebreak //B
@@ -1612,18 +1639,18 @@ input_check:
     ebreak //X
     ebreak //Y
     ebreak //Z
-    ebreak //[
-    ebreak //\
-    ebreak //]
-    ebreak //^
-    ret //_
+    nop // [
+    nop // \
+    nop // ]
+    nop // ^
+    nop // _   //why does this have to be removed
     ebreak//` --grave accent, use as backspace
     jal zero, dec_eight_wide //a
     jal zero, dec_eight_wide //b
     jal zero, dec_eight_wide //c
     jal zero, dec_eight_wide //d
     jal zero, dec_eight_wide //e
-    jal zero, dec_twelve_wide //f 
+    jal zero, dec_eight_wide //f 
     jal zero, dec_ten_wide//g
     jal zero, dec_ten_wide//h
     jal zero, dec_four_wide//i
@@ -2193,10 +2220,92 @@ chr_1:
   
   
   
+    sh s4, 0(s2)
+  
+  chr_big_A:
+    chr_A:
+  add s2, s1, zero //set pixel write adress to cursor position
+    
+  sh s7, 8(s2)
+  sw s4, 10(s2)
+  sh s4, 14(s2)
+  sh s7, 16(s2)
+  addi s2, s2, screen_width
+  
+  sh s4, 8(s2)
+  sw s0, 10(s2)
+  sh s0, 14(s2)
+  sh s4, 16(s2)
+  addi s2, s2, screen_width
+  
+  sw s0, 8(s2)
+  sh s4, 12(s2)
+  sw s0, 14(s2)
+  addi s2, s2, screen_width
+  
+  sw s0, 8(s2)
+  sh s7, 12(s2)
+  sw s0, 14(s2)
+  addi s2, s2, screen_width
+  
+  sh s7, 6(s2)
+  sh s0, 8(s2)
+  sh s4, 10(s2)
+  sh s7, 12(s2)
+  sh s4, 14(s2)
+  sh s0, 16(s2)
+  sh s7, 18(s2)
+  addi s2, s2, screen_width
+  
+  sh s4, 6(s2)
+  sh s0, 8(s2)
+  sh s7, 10(s2)
+  sh s7, 14(s2)
+  sh s0, 16(s2)
+  sh s4, 18(s2)
+  addi s2, s2, screen_width
+  
+  sh s0, 6(s2)
+  sh s0, 18(s2)
+  addi s2, s2, screen_width
+  
+  sw s0, 6(s2)
+  sw s0, 10(s2)
+  sw s0, 14(s2)
+  sh s0, 18(s2)
+  addi s2, s2, screen_width
+  
+  sh s7, 4(s2)
+  sh s0, 6(s2)
+  sh s4, 8(s2)
+  sh s4, 16(s2)
+  sh s0, 18(s2)
+  sh s7, 20(s2)
+  addi s2, s2, screen_width
+  
+  sh s4, 4(s2)
+  sh s0, 6(s2)
+  sh s7, 8(s2)
+  sh s7, 16(s2)
+  sh s0, 18(s2)
+  sh s4, 20(s2)
+  addi s2, s2, screen_width
+  
+  sh s0, 4(s2)
+  sh s4, 6(s2)
+  sh s4, 18(s2)
+  sh s0, 20(s2)
+  
+  addi t6, zero, 0x61 
+  sb t6, 0(sp)
+  add t6, zero, zero
+  addi sp, sp, 1
   
   
   
   
+  addi s1, s1, 8
+  jal zero, colour_calc
   
   
   
