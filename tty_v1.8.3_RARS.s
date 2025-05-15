@@ -24,7 +24,7 @@
 
 .eqv SERIAL_PORT_BASE,      0xffff0000 # base address of serial port region
 
-.eqv SERP_RX_ST_REG,        0xffff0000 # Receiver status register
+.eqv SERP_RX_ST_REG,        0xffff0008 # Receiver status register
 .eqv SERP_RX_ST_REG_o,          0x0000 # Offset of RX_ST_REG
 .eqv SERP_RX_ST_REG_READY_m,       0x1 # Data byte is ready to be read
 .eqv SERP_RX_ST_REG_IE_m,          0x2 # Enable Rx ready interrupt
@@ -317,7 +317,7 @@ loop:
     
     
     call input_check #call edge_case_handler_1
-    jal zero, colour_calc
+    jal zero, edge_case_handler_1
     
     
     
@@ -333,9 +333,11 @@ loop:
     #currently set to stop on error values, commented instructions are for automatically fixing the values
     edge_case_handler_1: #if the stack pointer is lower then it is supposed to be, this is expected behavior when sending delete chr command with no text so it is kept as auto-fix
     
-    li t0, 0xbfffff00                 # load the default stack pointer value 
-    beq t0, sp, edge_case_handler_2  # if the stack pointer isn't greater than or equal to the default stack pointer value, continue
-    bgt sp, t0, edge_case_handler_2  
+    li t0, 0x7fffeffc # load the default stack pointer value 
+    li t1, 0x10040000
+    
+    blt sp, t0 edge_case_handler_2  #beq t0, sp, edge_case_handler_2  # if the stack pointer isn't greater than or equal to the default stack pointer value, continue
+    bgt sp, t1 edge_case_handler_2 #bgt sp, t0, edge_case_handler_2  
     add sp, t0, zero #set the stack pointer to the default stack pointer value
     la a1, error_1 # load address of text
     call serial_write
@@ -406,16 +408,16 @@ loop:
     
     
     serial_write:
-    li   a0, SERIAL_PORT_BASE           # load base address of serial port
+    li   a0, SERP_TX_ST_REG             # load base address of serial port
 next_char:
     lb   t1, 0(a1)                      # load one byte after another
     beq  t1, zero, end_char             # is this the terminal zero byte
     addi a1, a1, 1                      # move pointer to next text byte
 tx_busy:
-    lw   t0, SERP_TX_ST_REG_o(a0)       # read status of transmitter
+    lw   t0, 0(a0)       # read status of transmitter
     andi t0, t0, SERP_TX_ST_REG_READY_m # mask ready bit
-    beq  t0, zero, tx_busy              # if not ready wait for ready condition
-    sw   t1, SERP_TX_DATA_REG_o(a0)     # write byte to Tx data register
+    beqz  t0, tx_busy              # if not ready wait for ready condition
+    sw   t1, 4(a0)     # write byte to Tx data register
     jal  zero, next_char                # unconditional branch to process next byte
     end_char:
     ret
@@ -447,8 +449,8 @@ input_check:
     
   lb t0, 0(s3) #check for input
   beq t0, zero, colour_calc  #if there is no new inputs, return
-  
-  #call colour_warner #
+  ebreak
+  call colour_warner #
   
   li t1, 0xffff0004  #check for terminal input
   lw t3, 0(t1) #load character code
