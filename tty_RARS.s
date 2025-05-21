@@ -63,7 +63,7 @@
 #   bits 11 .. 15 red component
 #   bits  5 .. 10 green component
 #   bits  0 ..  4 blue component
-.eqv LCD_FB_START,          0x10000000#0x10040000
+.eqv LCD_FB_START,          0x10010000#0x10000000#0x10040000
 .eqv LCD_FB_END,            0xffe4afff
 
 # RISC-V ACLINT MSWI and MTIMER memory mapped peripherals
@@ -107,18 +107,22 @@ loop:
 # take advantage of software interrupts? (read/write to file, etc)
 
 # stop hardcoding the ASCII values being written to stack
-	
+
+# swap input check from polling to interrupt based
+
+
+
 
 # current WIP (currently not breaking code/causing issues)
 
 # add the rest of the letters and backspace, next line, etc. ---- alphabet, 
 # backspace and newline are done
 
-# antiailias the characters, only the numbers and A,B,C are done
-
 
 # started reallocating registers to allign with how they are supposed to be used
 # ---- most registers reallocated, still need to look ffor ones I missed
+
+
 
 
 # current WIP (currently breaking code/causing issues)
@@ -160,6 +164,13 @@ loop:
 
 # LED RGB 1 now shows the text colour
 
+#all characters are antialiased
+
+# redone colour calc to work with RARS digital lab sim
+
+
+
+
 
 
     #start writing to screen      
@@ -174,149 +185,397 @@ loop:
     
     addi t6, zero, 0x1
     
-    colour_calc:    
     
-    #li t0, SPILED_REG_KNOBS_8BIT #load RGB values into ra
-  #  add t0, zero, zero#clear registers
+    
+    
+    #turn on colour interrupt
+li t1, 0xf2 #set Digital lab sim to interrupt mode
+li t2, 0xffff0012
+sb t1, 0(t2)
+
+
+li t0, 0xffffffff
+csrrw zero, 4, t0 #enable all interrupts
+
+ 	la t0,interrupt_handler
+ 	csrrw zero, 5, t0 # set utvec (5) to the handlers address
+ 	csrrsi zero, 0, 1 # set interrupt enable bit in ustatus (0)
+
+    start:
+    j edge_case_handler_1
+    
+    
+    interrupt_handler:
+    csrrc t1, 66, zero #load the ucause value
+    li t0, 0x80000008 #load the value of the digital lab sim ucause
+    beq t0, t1, colour_calc #if the interrupt is because of the digital lab sim, jump to colour calc
+    ebreak #if it is because of an unknown interrupt, stop execution
+    
+    
+    
+    
+    
+    colour_calc:
+    
+        #row 1
+    	li t0, 0xffff0012
+	li t1, 0xf1 #set Digital lab sim to interrupt mode
+        sb t1, 0(t0)
+        lh t2, 2(t0)
+        beq t2, zero, row_2
+        
+        li t0, 0x1
+        sub t2, t2, t0
+        auipc t0, 0
+        add t0, t0, t2
+        jalr t0, 0
+        
+      #  ebreak
+        ebreak
+        j DLS_0#0
+        ebreak
+        ebreak
+        ebreak
+        j DLS_1#1
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        j DLS_2#2
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        j DLS_3#3
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        
+        DLS_0: #remove blue
+        li t0, 0xffffff00
+        and s0, s0, t0
+        and s4, s4, t0
+        and s7, s7, t0
+        uret
+        DLS_1: #remove green
+        li t0, 0xffff00ff
+        and s0, s0, t0
+        and s4, s4, t0
+        and s7, s7, t0
+        uret
+        DLS_2: #remove red
+        li t0, 0xff00ffff
+        and s0, s0, t0
+        and s4, s4, t0
+        and s7, s7, t0
+        uret
+        DLS_3: #remove all
+        and s0, zero, zero
+        and s4, zero, zero
+        and s7, zero, zero
+        uret
+        
+        
+        row_2:
+        addi t1, t1, 0x1
+        sb t1, 0(t0)
+        lh t2, 2(t0)
+        beq t2, zero, row_3
+        
+        li t0, 0x2
+        sub t2, t2, t0
+        auipc t0, 0
+        add t0, t0, t2
+        jalr t0, 0
+        
+      #  ebreak
+        ebreak
+        j DLS_4#0
+        ebreak
+        ebreak
+        ebreak
+        j DLS_5#1
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        j DLS_6#2
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        j DLS_7#3
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        
+        DLS_4: #set  blue
+        
+        li t0, 0xffffff00
+        and s0, s0, t0
+        and s4, s4, t0
+        and s7, s7, t0
+        ori s0, s0, 0x55
+        ori s4, s4, 0x2b
+        ori s4, s4, 0x16
+        uret
+        DLS_5: #set green
+        
+        li t0, 0xffff00ff
+        and s0, s0, t0
+        and s4, s4, t0
+        and s7, s7, t0
+        li t1, 0x5500
+        or s0, s0, t1
+        li t1, 0x2b00
+        or s4, s4, t1
+        li t1, 0x1600
+        or s7, s7, t1
+        uret
+        DLS_6: #set red
+        
+        li t0, 0xff00ffff
+        and s0, s0, t0
+        and s4, s4, t0
+        and s7, s7, t0
+        li t1, 0x550000
+        or s0, s0, t1
+        li t1, 0x2b0000
+        or s4, s4, t1
+        li t1, 0x160000
+        or s7, s7, t1
+        uret
+        DLS_7:#set all
+        li s0, 0x555555
+        li s4, 0x2b2b2b
+        li s7, 0x161616
+        uret
+        
+        
+        
+        
+        row_3:
+        addi t1, t1, 0x2
+        sb t1, 0(t0)
+        lh t2, 2(t0)
+        beq t2, zero, row_4
+        
+        li t0, 0x4
+        sub t2, t2, t0
+        auipc t0, 0
+        add t0, t0, t2
+        jalr t0, 0
+        
+      #  ebreak
+        ebreak
+        j DLS_8#0
+        ebreak
+        ebreak
+        ebreak
+        j DLS_9#1
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        j DLS_a#2
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        j DLS_b#3
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        
+        DLS_8: #set  blue
+        li t0, 0xffffff00
+        and s0, s0, t0
+        and s4, s4, t0
+        and s7, s7, t0
+        ori s0, s0, 0xaa
+        ori s4, s4, 0x55
+        ori s7, s7, 0x2b
+        uret
+        DLS_9: #set green
+        li t0, 0xffff00ff
+        and s0, s0, t0
+        and s4, s4, t0
+        and s7, s7, t0
+        li t1, 0xaa00
+        or s0, s0, t1
+        li t1, 0x5500
+        or s4, s4, t1
+        li t1, 0x2b00
+        or s7, s7, t1
+        uret
+        DLS_a: #set red
+        li t0, 0xff00ffff
+        and s0, s0, t0
+        and s4, s4, t0
+        and s7, s7, t0
+        li t1, 0xaa0000
+        or s0, s0, t1
+        li t1, 0x550000
+        or s4, s4, t1
+        li t1, 0x2b0000
+        or s7, s7, t1
+        uret
+        DLS_b:#set all
+        li s0, 0xaaaaaa
+        li s4, 0x555555
+        li s7, 0x2b2b2b
+        uret
+        
+        
+        
+        row_4:
+        addi t1, t1, 0x4
+        sb t1, 0(t0)
+        lh t2, 2(t0)
+        beq t2, zero, no_row
+        
+        li t0, 0x8
+        sub t2, t2, t0
+        auipc t0, 0
+        add t0, t0, t2
+        jalr t0, 0
+        
+      #  ebreak
+        ebreak
+        j DLS_c#0
+        ebreak
+        ebreak
+        ebreak
+        j DLS_d#1
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        j DLS_e#2
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        j DLS_f#3
+        ebreak
+        ebreak
+        ebreak
+        ebreak
+        
+        DLS_c: #set  blue
+        li t0, 0xffffff00
+        and s0, s0, t0
+        and s4, s4, t0
+        and s7, s7, t0
+        ori s0, s0, 0xff
+        ori s4, s4, 0x80
+        ori s7, s7, 0x40
+        uret
+        DLS_d: #set green
+        li t0, 0xffff00ff
+        and s0, s0, t0
+        and s4, s4, t0
+        and s7, s7, t0
+        li t1, 0xff00
+        or s0, s0, t1
+        li t1, 0x8000
+        or s4, s4, t1
+        li t1, 0x4000
+        or s7, s7, t1
+        uret
+        DLS_e: #set red
+        li t0, 0xff00ffff
+        and s0, s0, t0
+        and s4, s4, t0
+        and s7, s7, t0
+        li t1, 0xff0000
+        or s0, s0, t1
+        li t1, 0x800000
+        or s4, s4, t1
+        li t1, 0x400000
+        or s7, s7, t1
+        uret
+        DLS_f:#set all
+        li s0, 0xffffff
+        li s4, 0x808080
+        li s7, 0x404040
+        uret
+        
+        
+        no_row:
+        uret
+    
+    
+    
 
     
-
-    #get RGB value
-    li t4, SPILED_REG_KNOBS_8BIT #load RGB values
-    
-    lbu t1, 0(t4) #blue
-    lbu t2, 1(t4) #green
-    lbu t3, 2(t4) #red
-    
-    add t5, t1, t2 #
-    add t6, t5, t3
-
-    bne s6, t6, colour_merge
-    
-    
-    jal zero, edge_case_handler_1
-    
-    
-    colour_merge:
-    
-    
-    add s6, t6, zero
-    
-    
-    
-    blue_calc:
-    
-    
-    
-    not t5, zero #bit mask blue value
-    srli t5, t5, 4
-    not t5, t5
-    and s0, s0, t5 #bit mask main colour
-    and s4, s4, t5 #bit mask antiailiasing colour 1
-    and s7, s7, t5 #bit mask antiailiasing colour 2
-    
-    li t6, 0x3 #calculate antiailiasing colour 1 (stored in S4)
-    div t0, t1, t6
-    srli t0, t0, 3
-    or s4, s4, t0
-    
-    li t6, 0x5
-    div t0, t1, t6 #calculate antiailiasing colour 2 (stored in S7)
-    srli t0, t0, 3
-    or s7, s7, t0
-    
-    
-    srli t1, t1, 3
-    or s0, s0, t1 #merge RGB values into bottom half of 1 register (T1 register is RGB value)
-    
-    
-    
-    green_calc:
-    
-    
-    not t5, zero #bit mask green value
-    srli t5, t5, 2
-    slli t5, t5, 5
-    not t5, t5
-    and s0, s0, t5
-    and s4, s4, t5
-    and s7, s7, t5
-    
-    li t6, 0x3
-    div t0, t2, t6 #calculate antiailiasing colour 1
-    srli t0, t0, 2
-    slli t0, t0, 5
-    or s4, s4, t0
-    
-    li t6, 0x5
-    div t0, t2, t6 #calculate antiailiasing colour 2
-    srli t0, t0, 2
-    slli t0, t0, 5
-    or s7, s7, t0
-
-    srli t2, t2, 2 
-    slli t2, t2, 5
-    add s0, s0, t2 #merge RGB values into bottom half of 1 register (T1 register is RGB value)
     
 
-    
-    red_calc:
-    
-    not t5, zero
-    srli t5, t5, 3 #divide RGB values by 2
-    slli t5, t5, 11
-    not t5, t5
-    
-    and s0, s0, t5
-    and s4, s4, t5
-    and s7, s7, t5
-    
-    
-    li t6, 0x3
-    div t0, t3, t6 #calculate antiailiasing colour
-    srli t0, t0, 3 
-    slli t0, t0, 11
-    or s4, s4, t0   
-    
-    li t6, 0x5
-    div t0, t3, t6 #calculate antiailiasing colour
-    srli t0, t0, 3 
-    slli t0, t0, 11
-    or s7, s7, t0 
-    
-       
-    srli t3, t3, 3 #divide RGB values by 2
-    slli t3, t3, 11
-    add s0, s0, t3  
-    
-
-    
-    
-    #duplicate RGB values on top half of register to allow for writing 2 pixels at once
-    upper_duplicate:
-    add t6, s0, zero  
-    slli t6, t6, 16
-    or s0, s0, t6
-    #add t1, zero, zero
-    #add t6, zero, zero
-    
-    add t6, s4, zero  
-    slli t6, t6, 16
-    or s4, s4, t6
-
-    add t6, s7, zero  
-    slli t6, t6, 16
-    or s7, s7, t6
-    
-    lw t4, 0(t4) #all colours for LED RGB 1 output
-    li t6, SPILED_REG_LED_RGB1
-    sw t4, 0(t6)
     
     
     not s1, zero #test
     
     
-    call input_check #call edge_case_handler_1
+    #call input_check #call edge_case_handler_1
     jal zero, edge_case_handler_1
     
     
@@ -351,13 +610,13 @@ loop:
     ebreak
     
     edge_case_handler_2: 
-    li t2, LCD_FB_START
-    beq s1, t2, edge_case_handler_end
-    bgt s1, t2, edge_case_handler_end
-    add s1, t2, zero
-    la a1, error_2 # load address of text
-    call serial_write
-    add a1, zero, zero
+    #li t2, LCD_FB_START
+    #beq s1, t2, edge_case_handler_end
+    #bgt s1, t2, edge_case_handler_end
+    #add s1, t2, zero
+    #la a1, error_2 # load address of text
+    #call serial_write
+    #add a1, zero, zero
     jal zero, edge_case_handler_end
     
     
@@ -443,14 +702,12 @@ tx_busy:
     
   #  sw t1, 0(s6)  #test to see if RGB calcs working 
 input_check:
-    not s0, zero #temp setup to give text colour
-    li s4, 0xa555
-    li s7, 0x6333
+    
     
   lb t0, 0(s3) #check for input
-  beq t0, zero, colour_calc  #if there is no new inputs, return
-  ebreak
-  call colour_warner #
+  beq t0, zero, start  #if there is no new inputs, return
+  #ebreak
+  #call colour_warner #
   
   li t1, 0xffff0004  #check for terminal input
   lw t3, 0(t1) #load character code
@@ -652,7 +909,7 @@ input_check:
   addi sp, sp, 4 #increment stack pointer
   
   addi s1, s1, 16 #move cursor position right by 4 pixels
-  jal zero, colour_calc #return
+  jal zero, start #return
 
   nop #free space for future edits 
   nop
@@ -687,7 +944,7 @@ input_check:
   addi sp, sp, 4
     
   addi s1, s1, 16
-  jal zero, colour_calc
+  jal zero, start
   
   nop #free space for future edits 
   nop
@@ -720,7 +977,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 16
-  jal zero, colour_calc
+  jal zero, start
   
   nop #free space for future edits 
   nop
@@ -756,7 +1013,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 16
-  jal zero, colour_calc
+  jal zero, start
 
   nop #free space for future edits 
   nop
@@ -790,7 +1047,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 16
-  jal zero, colour_calc
+  jal zero, start
 
   nop
   nop #free space for future edits 
@@ -822,7 +1079,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 16
-  jal zero, colour_calc
+  jal zero, start
 
   nop #free space for future edits 
   nop
@@ -860,7 +1117,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 20
-  jal zero, colour_calc
+  jal zero, start
   
   nop #free space for future edits 
   nop
@@ -896,7 +1153,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 20
-  jal zero, colour_calc
+  jal zero, start
 
   nop #free space for future edits 
   nop
@@ -925,7 +1182,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 8
-  jal zero, colour_calc
+  jal zero, start
   
   
   nop #free space for future edits 
@@ -959,7 +1216,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 16
-  jal zero, colour_calc
+  jal zero, start
 
   nop #free space for future edits 
   nop
@@ -996,7 +1253,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 20
-  jal zero, colour_calc
+  jal zero, start
 
   nop #free space for future edits 
   nop
@@ -1031,7 +1288,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 16
-  jal zero, colour_calc
+  jal zero, start
   
   nop #free space for future edits 
   nop
@@ -1070,7 +1327,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 24
-  jal zero, colour_calc
+  jal zero, start
 
   nop #free space for future edits 
   nop
@@ -1110,7 +1367,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 24
-  jal zero, colour_calc
+  jal zero, start
   
   nop #free space for future edits 
   nop
@@ -1148,7 +1405,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 20
-  jal zero, colour_calc
+  jal zero, start
   
   nop #free space for future edits 
   nop
@@ -1182,7 +1439,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 16
-  jal zero, colour_calc
+  jal zero, start
   
   nop #free space for future edits 
   nop
@@ -1220,7 +1477,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 24
-  jal zero, colour_calc
+  jal zero, start
   
   nop #free space for future edits 
   nop
@@ -1256,7 +1513,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 16
-  jal zero, colour_calc
+  jal zero, start
   
   nop #free space for future edits 
   nop
@@ -1289,7 +1546,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 16
-  jal zero, colour_calc
+  jal zero, start
 
   nop #free space for future edits 
   nop
@@ -1320,7 +1577,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 16
-  jal zero, colour_calc
+  jal zero, start
   
   nop #free space for future edits 
   nop
@@ -1356,7 +1613,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 20
-  jal zero, colour_calc
+  jal zero, start
   
   nop #free space for future edits 
   nop
@@ -1393,7 +1650,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 24
-  jal zero, colour_calc
+  jal zero, start
   
   nop #free space for future edits 
   nop
@@ -1432,7 +1689,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 24
-  jal zero, colour_calc
+  jal zero, start
   
   nop #free space for future edits 
   nop
@@ -1472,7 +1729,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 24
-  jal zero, colour_calc
+  jal zero, start
   
   nop #free space for future edits 
   nop
@@ -1505,7 +1762,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 16
-  jal zero, colour_calc
+  jal zero, start
   
   nop #free space for future edits 
   nop
@@ -1540,7 +1797,7 @@ input_check:
   addi sp, sp, 4
   
   addi s1, s1, 16
-  jal zero, colour_calc
+  jal zero, start
   
   nop #free space for future edits 
   nop
@@ -1557,7 +1814,7 @@ input_check:
   addi sp, sp, 4 #increment stack pointer
   
   addi s1, s1, 16 #move cursor position right by 4 pixels 
-  jal zero, colour_calc #return
+  jal zero, start #return
   
   chr_newline:
   
@@ -1579,7 +1836,7 @@ input_check:
   #multiply the cursor height by the screen width to get the offset that is needed to go that many pixels down
   li t4, LCD_FB_START
   add s1, t3, t4 #add the offset to the value of the screen start and store it in the cursor position
-  jal zero, colour_calc #return
+  jal zero, start #return
   
   
   
@@ -1598,7 +1855,7 @@ input_check:
     add t3, t3, t0
    jalr zero, t3, 0
     chr_del_enc:
-    jal zero, colour_calc #  ret
+    jal zero, start #  ret
     ebreak
     ebreak
     ebreak
@@ -1777,7 +2034,7 @@ clr_two_at_chr_pointer:
   addi s2, s2, screen_width
   sw zero, 0(s2)
   sw zero, 4(s2)
-  jal zero, colour_calc
+  jal zero, start
 
 
   clr_one_at_chr_pointer_plus_2_px:
@@ -1872,7 +2129,7 @@ clr_two_at_chr_pointer_plus_2_px:
   sh zero, 0(t4) #zero stack (reordered away from the newline stack adress load to reduce pipeline stalls
   sh t4, 0(t3)  #store newline stack pointer back
   
-  jal zero, colour_calc
+  jal zero, start
 
 
 
@@ -1899,7 +2156,7 @@ chr_apostraphe:
   addi sp, sp, 4
   
   addi s1, s1, 12
-  jal zero, colour_calc
+  jal zero, start
 
 
 chr_comma:
@@ -1919,7 +2176,7 @@ chr_comma:
   addi sp, sp, 4
   
   addi s1, s1, 12
-  jal zero, colour_calc
+  jal zero, start
 
 chr_dash:
 
@@ -1937,7 +2194,7 @@ chr_dash:
   addi sp, sp, 4
   
     addi s1, s1, 20
-  jal zero, colour_calc
+  jal zero, start
 
 chr_period:
 
@@ -1954,7 +2211,7 @@ chr_period:
   addi sp, sp, 4
   
   addi s1, s1, 8
-  jal zero, colour_calc
+  jal zero, start
 
 chr_slash: 
   add s2, s1, zero
@@ -1979,7 +2236,7 @@ chr_slash:
   addi sp, sp, 4
   
   addi s1, s1, 24
-  jal zero, colour_calc
+  jal zero, start
 
 
 
@@ -2011,7 +2268,7 @@ chr_0:
   addi sp, sp, 4
   
   addi s1, s1, 20
-  jal zero, colour_calc
+  jal zero, start
 
 chr_1:
 
@@ -2036,7 +2293,7 @@ chr_1:
   addi sp, sp, 4
   
   addi s1, s1, 16
-  jal zero, colour_calc
+  jal zero, start
   
   
   
@@ -2068,7 +2325,7 @@ chr_1:
   addi sp, sp, 4
   
   addi s1, s1, 16
-  jal zero, colour_calc
+  jal zero, start
   
   
   
@@ -2100,7 +2357,7 @@ chr_1:
   addi sp, sp, 4
   
   addi s1, s1, 16
-  jal zero, colour_calc
+  jal zero, start
   
   
   
@@ -2132,7 +2389,7 @@ chr_1:
   addi sp, sp, 8
   
   addi s1, s1, 10
-  jal zero, colour_calc
+  jal zero, start
   
   
   
@@ -2163,7 +2420,7 @@ chr_1:
   addi sp, sp, 4
   
   addi s1, s1, 16
-  jal zero, colour_calc
+  jal zero, start
   
   
   
@@ -2196,7 +2453,7 @@ chr_1:
   addi sp, sp, 4
   
   addi s1, s1, 16
-  jal zero, colour_calc
+  jal zero, start
   
   
   
@@ -2227,7 +2484,7 @@ chr_1:
   addi sp, sp, 4
   
   addi s1, s1, 16
-  jal zero, colour_calc
+  jal zero, start
   
   
   chr_8:
@@ -2254,7 +2511,7 @@ chr_1:
   addi sp, sp, 4
     
   addi s1, s1, 20
-  jal zero, colour_calc
+  jal zero, start
   
   chr_9:
   add s2, s1, zero
@@ -2282,7 +2539,7 @@ chr_1:
   addi sp, sp, 4
     
   addi s1, s1, 16
-  jal zero, colour_calc
+  jal zero, start
   
   chr_colon:
   
@@ -2301,7 +2558,7 @@ chr_1:
   addi sp, sp, 4
   
   addi s1, s1, 8
-  jal zero, colour_calc
+  jal zero, start
   
   
   
@@ -2399,7 +2656,7 @@ chr_1:
   
   
   addi s1, s1, 48
-  jal zero, colour_calc
+  jal zero, start
   
   
   
@@ -2481,7 +2738,7 @@ chr_1:
   addi sp, sp, 4
   
   addi s1, s1, 32
-  jal zero, colour_calc
+  jal zero, start
   
   
 
@@ -2491,14 +2748,17 @@ chr_1:
 
 
     ebreak # stop continuous execution, request developer interaction
-
+fmax.s ft0, ft1, ft2
 
 
 .data
-error_1: .asciz  "ERROR: stack overflow/n"   # store zero terminated ASCII text
-error_2: .asciz  "ERROR: cursor overflow/n"   # store zero terminated ASCII text
-colour_warning_text_1: .asciz "WARNING:you have not chosen a text colour/n" # store zero terminated ASCII text
-colour_warning_text_2: .asciz  "WARNING: text colour may be too dark to see/n"   # store zero terminated ASCII text 
+error_1: .asciz  "ERROR: stack overflow"   # store zero terminated ASCII text
+error_2: .asciz  "ERROR: cursor overflow"   # store zero terminated ASCII text
+colour_warning_text_1: .asciz "WARNING:you have not chosen a text colour" # store zero terminated ASCII text
+colour_warning_text_2: .asciz  "WARNING: text colour may be too dark to see"   # store zero terminated ASCII text 
+
+
+
 
 
 
