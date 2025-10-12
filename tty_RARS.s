@@ -1,26 +1,5 @@
-#  Template file with defines of peripheral registers
-#  QtRVSim simulator https:#github.com/cvut/qtrvsim/
-#
-#  template.S       - example file
-#
-#  (C) 2021-2024 by Pavel Pisa
-#      e-mail:   pisa@cmp.felk.cvut.cz
-#      homepage: http:#cmp.felk.cvut.cz/~pisa
-#      work:     http:#www.pikron.com/
-#      license:  public domain
-
-# Directives to make interesting windows visible
-#pragma qtrvsim show terminal
-#pragma qtrvsim show registers
-#pragma qtrvsim show memory
-
 
 .globl __start
-
-
-# Serial port/terminal registers
-# There is mirror of this region at address 0xffff0000
-# to match QtSpim and Mars emulators
 
 .eqv SERIAL_PORT_BASE,      0xffff0000 # base address of serial port region
 
@@ -36,7 +15,6 @@
 .eqv SERP_TX_ST_REG_o,          0x0008 # Offset of TX_ST_REG
 .eqv SERP_TX_ST_REG_READY_m,       0x1 # Transmitter can accept next byte
 .eqv SERP_TX_ST_REG_IE_m,          0x2 # Enable Tx ready interrupt
-# MZ_APO education Zynq based board developed
 
 .eqv SERP_TX_DATA_REG,      0xffff000c # Write word to send 8 LSB bits to terminal
 .eqv SERP_TX_DATA_REG_o,        0x000c # Offset of TX_DATA_REG
@@ -87,8 +65,9 @@
 
 
 
-
+.eqv stack_start, 0x7fffeffc
 .eqv screen_width, 0x00000200
+.eqv screen_width2, 0x00000800
 .eqv newline_stack_pointer, 0x10040000
 .eqv newline_stack_pointer_start_add, 0x10040004#0xffe4b004
 
@@ -102,13 +81,6 @@ loop:
 
 # add font size
 
-# print the characters to the terminal as well as the screen
-
-# take advantage of software interrupts? (read/write to file, etc)
-
-# stop hardcoding the ASCII values being written to stack
-
-# swap input check from polling to interrupt based
 
 
 
@@ -120,7 +92,7 @@ loop:
 
 
 # started reallocating registers to allign with how they are supposed to be used
-# ---- most registers reallocated, still need to look ffor ones I missed
+# ---- most registers reallocated, still need to look for ones I missed
 
 
 
@@ -131,11 +103,18 @@ loop:
 
 
 
-
-
-
-
 #done
+
+# take advantage of software interrupts? (read/write to file, etc)
+
+# stop hardcoding the ASCII values being written to stack
+
+# swap input check from polling to interrupt based
+
+# delete characters from file
+
+# print the characters to the terminal as well as the screen
+
 
 # store the written text for later use for shell commands, ETC
 
@@ -168,8 +147,14 @@ loop:
 
 # redone colour calc to work with RARS digital lab sim
 
-
-
+li s9, screen_width
+li s8, 0x0 #s8 is the background colour
+#open file
+  li   a7, 1024     # system call for open file
+  la   a0, fout     # output file name
+  li   a1, 9        # Open for writing (flags are 0: read, 1: write)
+  ecall             # open a file (file descriptor returned in a0)
+  mv   s2, a0       # save the file descriptor
 
 
 
@@ -180,10 +165,16 @@ loop:
     sw a2, 0(a1)
 
     li s1, LCD_FB_START #s7 is the cursor position
-    li s2, LCD_FB_START #s8 is the address of the pixel being written to
+    li t5, LCD_FB_START #t5 is the address of the pixel being written to
     li s3, SERIAL_PORT_BASE # load base address of serial port
     
-    addi t6, zero, 0x1
+   # addi t6, zero, 0x1 #why was this here?
+    
+    
+    #set default colour to white
+    li s0, 0xffffff
+    li s4, 0x808080
+    li s7, 0x404040
     
     
     
@@ -191,6 +182,10 @@ loop:
     #turn on colour interrupt
 li t1, 0xf2 #set Digital lab sim to interrupt mode
 li t2, 0xffff0012
+sb t1, 0(t2)
+
+not t1, zero #set keyboard to interrupt mode
+li t2, 0xffff0000
 sb t1, 0(t2)
 
 
@@ -206,8 +201,11 @@ csrrw zero, 4, t0 #enable all interrupts
     
     
     interrupt_handler:
-    csrrc t1, 66, zero #load the ucause value
-    li t0, 0x80000008 #load the value of the digital lab sim ucause
+    
+    csrrc t1, 67, zero #load the ucause value
+    li t0, 0x40 #load the value of the digital lab sim ucause
+    beq t0, t1, input_check #if the interrupt is because of the keyboard, jump to input check
+    li t0, 0x200 #load the value of the digital lab sim ucause
     beq t0, t1, colour_calc #if the interrupt is because of the digital lab sim, jump to colour calc
     ebreak #if it is because of an unknown interrupt, stop execution
     
@@ -573,8 +571,7 @@ csrrw zero, 4, t0 #enable all interrupts
     
     
     not s1, zero #test
-    
-    
+        
     #call input_check #call edge_case_handler_1
     jal zero, edge_case_handler_1
     
@@ -585,9 +582,7 @@ csrrw zero, 4, t0 #enable all interrupts
     
     
 
-    ebreak
-    
-    ebreak
+
 
     #currently set to stop on error values, commented instructions are for automatically fixing the values
     edge_case_handler_1: #if the stack pointer is lower then it is supposed to be, this is expected behavior when sending delete chr command with no text so it is kept as auto-fix
@@ -605,9 +600,7 @@ csrrw zero, 4, t0 #enable all interrupts
     
     
     
-    ebreak
-    
-    ebreak
+
     
     edge_case_handler_2: 
     #li t2, LCD_FB_START
@@ -621,13 +614,11 @@ csrrw zero, 4, t0 #enable all interrupts
     
     
     edge_case_handler_end:
-    jal zero, input_check
+    jal zero, edge_case_handler_1
     
     
     
-    ebreak
-   
-    ebreak
+
     
     
     colour_warner:
@@ -641,9 +632,7 @@ csrrw zero, 4, t0 #enable all interrupts
     add a1, zero, zero
     jal zero, colour_warning_ret
     
-    ebreak
-    
-    ebreak
+
     
     colour_warning_2: 
    
@@ -660,12 +649,7 @@ csrrw zero, 4, t0 #enable all interrupts
     
 
 
-    
-    
-    
-    
-    
-    
+
     serial_write:
     li   a0, SERP_TX_ST_REG             # load base address of serial port
 next_char:
@@ -682,14 +666,7 @@ tx_busy:
     ret
     
     
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-  
+
    
  
 
@@ -704,16 +681,31 @@ tx_busy:
 input_check:
     
     
-  lb t0, 0(s3) #check for input
-  beq t0, zero, start  #if there is no new inputs, return
-  #ebreak
+ # lb t0, 0(s3) #check for input
+ # beq t0, zero, start  #if there is no new inputs, return
   #call colour_warner #
   
-  li t1, 0xffff0004  #check for terminal input
-  lw t3, 0(t1) #load character code
+  
+  
+  li t1, 0xffff0004  #get terminal input
+  lb t3, 0(t1) #load character code
+  
+  li t2, 0xffff000c       # system call for write to file
+  sw t3, 0(t2)
+  
+    # Write to file just opened
+#  li   a7, 64       # system call for write to file
+#  mv   a0, s2       # file descriptor
+#  mv   a1, t1   # address of buffer from which to write
+#  li   a2, 1       # hardcoded buffer length
+#  ecall             # write to file
+  
+  sb t3, 0(sp) #pop character into stack
+  addi sp, sp, 1 # addi sp, sp, 4 #increment stack pointer
+  
+  
   slli t3, t3, 2 #multiply to align with instruction addresses
-  auipc t0, 0
-  addi t0, t0, 0x10
+  la t0, chr_code
   add t3, t3, t0
   jalr zero, t3, 0 #indirect jump to write character
   chr_code:
@@ -724,7 +716,7 @@ input_check:
     nop # end of transmission
     nop # enquiry
     nop # acknowledge
-    nop # bell
+    ebreak # bell
     jal zero, del # backspace
     jal zero, chr_space # horizantal tab
     nop # line feed
@@ -748,24 +740,24 @@ input_check:
     nop # file seperator
     nop # group seperator
     nop # record seperator
-    ret # unit seperator
+    ebreak # unit seperator
     jal zero, chr_space # space
-    nop # !
-    nop # "
-    nop # #
+    jal zero, chr_exclamation_mark # !
+    ebreak  # "
+    jal zero, store_to_file # #
     nop # $
     nop # %
-    nop # &
+    ebreak # &
     jal zero, chr_apostraphe # ' --apostraphe
-    nop # (
-    nop # )
+    jal zero, chr_start_bracket # (
+    jal zero, chr_end_bracket # )
     nop # *
-    nop # +
+    ebreak # +
     jal zero, chr_comma # ,
     jal zero, chr_dash # -
     jal zero, chr_period # .
     jal zero, chr_slash # /
-    ebreak #jal zero, chr_0 # 0
+    jal zero, chr_0 # 0
     jal zero, chr_1 # 1
     jal zero, chr_2 # 2
     jal zero, chr_3 # 3
@@ -777,14 +769,14 @@ input_check:
     jal zero, chr_9 # 9
     jal zero, chr_colon # :
     jal zero, chr_newline # ; --semicolon, use as enter/newline
-    nop # <
-    nop # =
-    nop # >
-    nop # ?
-    ebreak # @
+    jal zero, chr_greater_than# <
+    jal zero, chr_equals # =
+    jal zero, chr_less_than # >
+    ebreak # ?
+    jal zero, settings_edit # @
     jal zero, chr_big_A # A
     jal zero, chr_big_B # B
-    jal zero, chr_C # C
+    jal zero, chr_big_C # C
     jal zero, chr_D # D
     jal zero, chr_E # E
     jal zero, chr_F # F
@@ -808,11 +800,11 @@ input_check:
     jal zero, chr_X # X
     jal zero, chr_Y # Y
     jal zero, chr_Z # Z
-    nop # [
-    nop # \
-    nop # ]
-    nop # ^
-    ret # _
+    jal zero, chr_start_square_bracket # [
+    jal zero, chr_backslash # \
+    jal zero, chr_end_square_bracket # ]
+    jal zero, chr_xor # ^
+    jal zero, chr_underscore # _
     jal zero, del # ` --grave accent, use as backspace
     jal zero, chr_A # a
     jal zero, chr_B # b
@@ -840,991 +832,648 @@ input_check:
     jal zero, chr_X # x
     jal zero, chr_Y # y
     jal zero, chr_Z # z
-    nop # {
-    nop # |
-    nop # }
-    ret # ~
+    jal zero, chr_start_curly_bracket # {
+    jal zero, chr_or # |
+    jal zero, chr_end_curly_bracket # }
+    ebreak # ~
     jal zero, del # delete
-    ebreak
-    nop
-    nop 
-    nop
-    nop
-    nop
-    nop 
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop  
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop  
-    ecall #stop execution if unknown character
+
     
   #write letter A to screen
   chr_A:
-  add s2, s1, zero #set pixel write adress to cursor position
+  add t5, s1, zero #set pixel write adress to cursor position
     
     
-  sw s4, 0(s2) #write one pixel to screen at the pixel write adress with the antiiliasing colour
-  sw s0, 4(s2) #write one pixel to screen at one pixel ( half this number ->2(s2) ) right of the pixel write adress 
-  sw s7, 8(s2)
-  addi s2, s2, screen_width #move pixel write adress down one row
-  sw s0, 0(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2) #write two pixels, one at the pixel write adress and one to the right of the pixel write adressthe pixel write adress 
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 8(s2)
-  
-  addi t6, zero, 0x61 #load ascii value of this character 
-  sb t6, 0(sp) #pop character into stack
-  add t6, zero, zero #clear register
-  addi sp, sp, 4 #increment stack pointer
-  
-  addi s1, s1, 16 #move cursor position right by 4 pixels
-  jal zero, start #return
+  sw s4, 0(t5) #write one pixel to screen at the pixel write adress with the antiiliasing colour
+  sw s0, 4(t5) #write one pixel to screen at one pixel ( half this number ->2(t5) ) right of the pixel write adress 
+  sw s7, 8(t5)
+  add t5, t5, s9 #move pixel write adress down one row
+  sw s0, 0(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5) #write two pixels, one at the pixel write adress and one to the right of the pixel write adressthe pixel write adress 
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 8(t5)
 
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
+  addi s1, s1, 16 #move cursor position right by 4 pixels
+  uret #return
   
   #write letter B to screen
   chr_B:
-  add s2, s1, zero
+  add t5, s1, zero
   
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-    
-  addi t6, zero, 0x62
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
     
   addi s1, s1, 16
-  jal zero, start
-  
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
+  uret
   
   #write letter C to screen
   chr_C:
-  add s2, s1, zero
+  add t5, s1, zero
   
-  sw s4, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  addi s2, s2, screen_width
-  sw s4, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  
-  addi t6, zero, 0x63
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
+  sw s4, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s4, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
   
   addi s1, s1, 16
-  jal zero, start
+  uret
   
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
-  
+
   #write letter D to screen
   chr_D:
-  add s2, s1, zero
+  add t5, s1, zero
 
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)  
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-  
-  addi t6, zero, 0x64
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-  
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)  
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+
   addi s1, s1, 16
-  jal zero, start
+  uret
 
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
   
   #write letter E to screen
   chr_E:
-  add s2, s1, zero
+  add t5, s1, zero
 
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)  
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  
-  addi t6, zero, 0x65
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-  
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)  
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+
   addi s1, s1, 16
-  jal zero, start
+  uret
 
-  nop
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  
   #write letter F to screen
   chr_F:
-  add s2, s1, zero
+  add t5, s1, zero
 
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)  
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)  
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
   
-  addi t6, zero, 0x66
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
+
   
   addi s1, s1, 16
-  jal zero, start
+  uret
 
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
-  
   #write letter G to screen
   chr_G:
-  add s2, s1, zero
+  add t5, s1, zero
   
-  sw s4, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2) 
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 8(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 12(s2) 
-  addi s2, s2, screen_width
-  sw s4, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  sh s4, 12(s2)
-  
-  addi t6, zero, 0x67
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
+  sw s4, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s0, 0(t5) 
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 8(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 12(t5) 
+  add t5, t5, s9
+  sw s4, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  sh s4, 12(t5)
   
   addi s1, s1, 20
-  jal zero, start
-  
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
+  uret
   
   #write letter H to screen
   chr_H:
-  add s2, s1, zero
+  add t5, s1, zero
 
-  sw s0, 0(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 12(s2) 
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 12(s2)
-  
-  addi t6, zero, 0x68
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-  
+  sw s0, 0(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 12(t5) 
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 12(t5)
+
   addi s1, s1, 20
-  jal zero, start
-
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
+  uret
   
   #write letter I to screen
   chr_I:
-  add s2, s1, zero
+  add t5, s1, zero
 
-  sw s0, 0(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  
-    addi t6, zero, 0x69
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-  
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+
   addi s1, s1, 8
-  jal zero, start
-  
-  
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
+  uret
   
   #write letter J to screen
   chr_J:
-  add s2, s1, zero
+  add t5, s1, zero
   
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s4, 0(s2)
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-  
-  addi t6, zero, 0x6a
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s4, 0(t5)
+  sw s0, 4(t5)
+  sw s4, 8(t5)
   
   addi s1, s1, 16
-  jal zero, start
+  uret
 
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
-  
   #write letter k to screen
   chr_K:
-  add s2, s1, zero
+  add t5, s1, zero
 
-  sw s0, 0(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 8(s2)
-  sw s4, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s4, 8(s2)
-  sw s0, 12(s2)
-  
-  addi t6, zero, 0x6b
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-  
+  sw s0, 0(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 8(t5)
+  sw s4, 12(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s4, 8(t5)
+  sw s0, 12(t5)
+
   addi s1, s1, 20
-  jal zero, start
+  uret
 
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  nop
-  
+
   #write letter L to screen
   chr_L:
-  add s2, s1, zero
+  add t5, s1, zero
 
-  sw s0, 0(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  
-  addi t6, zero, 0x6c
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
   
   addi s1, s1, 16
-  jal zero, start
-  
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
-  
+  uret
+
   #write letter M to screen
   chr_M:
-  add s2, s1, zero
+  add t5, s1, zero
 
-  sw s0, 0(s2)
-  sw s0, 16(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 12(s2)
-  sw s0, 16(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s4, 4(s2)
-  sw s0, 8(s2)
-  sw s4, 12(s2)
-  sw s0, 16(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 16(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 16(s2)
-  
-  addi t6, zero, 0x6d
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-  
+  sw s0, 0(t5)
+  sw s0, 16(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 12(t5)
+  sw s0, 16(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s4, 4(t5)
+  sw s0, 8(t5)
+  sw s4, 12(t5)
+  sw s0, 16(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 16(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 16(t5)
+
   addi s1, s1, 24
-  jal zero, start
+  uret
 
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
+
   
   #write letter N to screen
   chr_N:
-  add s2, s1, zero
+  add t5, s1, zero
 
-  sw s0, 0(s2)
-  sw s0, 16(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 16(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s4, 4(s2)
-  sw s0, 8(s2)
-  sw s0, 16(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s4, 8(s2)
-  sw s0, 12(s2)
-  sw s0, 16(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s4, 12(s2)
-  sw s0, 16(s2)
-  
-  addi t6, zero, 0x6e
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-  
+  sw s0, 0(t5)
+  sw s0, 16(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 16(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s4, 4(t5)
+  sw s0, 8(t5)
+  sw s0, 16(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s4, 8(t5)
+  sw s0, 12(t5)
+  sw s0, 16(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s4, 12(t5)
+  sw s0, 16(t5)
+
   addi s1, s1, 24
-  jal zero, start
+  uret
   
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
   
   #write letter O to screen
   chr_O:
-  add s2, s1, zero
+  add t5, s1, zero
 
-  sw s4, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  sw s4, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s4, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  sw s4, 12(s2)
-  
-  addi t6, zero, 0x6f
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-  
+  sw s4, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  sw s4, 12(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s4, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  sw s4, 12(t5)
+
   addi s1, s1, 20
-  jal zero, start
+  uret
   
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
-  
+
   #write letter P to screen
   chr_P:
-  add s2, s1, zero
+  add t5, s1, zero
   
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  
-  addi t6, zero, 0x70
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-  
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+
   addi s1, s1, 16
-  jal zero, start
+  uret
   
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
-  
+
   #write letter q to screen
   chr_Q:
-  add s2, s1, zero
+  add t5, s1, zero
   
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  sw s4, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s4, 4(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  sw s0, 12(s2)
-  sw s0, 16(s2)
-  
-  addi t6, zero, 0x71
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-  
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  sw s4, 12(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s4, 4(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  sw s0, 12(t5)
+  sw s0, 16(t5)
+
   addi s1, s1, 24
-  jal zero, start
+  uret
   
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
-     
+
   #write letter R to screen
   chr_R:
-  add s2, s1, zero
+  add t5, s1, zero
   
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 8(s2)
-  
-  addi t6, zero, 0x72
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-  
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 8(t5)
+
   addi s1, s1, 16
-  jal zero, start
+  uret
   
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
-  
+
   #write letter s to screen
   chr_S:
-  add s2, s1, zero
+  add t5, s1, zero
   
-  sw s4, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  addi s2, s2, screen_width
-  sw s0, 4(s2)
-  addi s2, s2, screen_width
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-  
-  addi t6, zero, 0x73
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-  
-  addi s1, s1, 16
-  jal zero, start
+  sw s4, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s4, 8(t5)
 
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
+  addi s1, s1, 16
+  uret
+  
   
   #write letter t to screen
   chr_T:
-  add s2, s1, zero
+  add t5, s1, zero
   
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 4(s2)
-  addi s2, s2, screen_width
-  sw s0, 4(s2)
-  addi s2, s2, screen_width
-  sw s0, 4(s2)
-  addi s2, s2, screen_width
-  sw s0, 4(s2)
-  
-  addi t6, zero, 0x74
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-  
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+
   addi s1, s1, 16
-  jal zero, start
-  
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
-  
+  uret
+
+
   #write letter U to screen
   chr_U:
-  add s2, s1, zero
+  add t5, s1, zero
   
-  sw s0, 0(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s4, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  sw s4, 12(s2)
-  
-  addi t6, zero, 0x75
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-  
+  sw s0, 0(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s4, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  sw s4, 12(t5)
+
   addi s1, s1, 20
-  jal zero, start
+  uret
   
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
   
   #write letter V to screen
   chr_V:
-  add s2, s1, zero
+  add t5, s1, zero
   
-  sw s0, 0(s2)
-  sw s0, 16(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 16(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s4, 4(s2)
-  sw s0, 16(s2)
-  addi s2, s2, screen_width
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-  sw s0, 12(s2)
-  sw s4, 16(s2)
-  addi s2, s2, screen_width
-  sw s0, 8(s2)
-  sw s4, 12(s2)
-  
-  addi t6, zero, 0x76
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
+  sw s0, 0(t5)
+  sw s0, 16(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 16(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s4, 4(t5)
+  sw s0, 16(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  sw s0, 12(t5)
+  sw s4, 16(t5)
+  add t5, t5, s9
+  sw s0, 8(t5)
+  sw s4, 12(t5)
   
   addi s1, s1, 24
-  jal zero, start
-  
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
+  uret
+
   
   #write letter w to screen
   chr_W:
-  add s2, s1, zero
+  add t5, s1, zero
   
-  sw s0, 0(s2)
-  sw s0, 16(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 16(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 8(s2)
-  sw s0, 16(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 8(s2)
-  sw s0, 16(s2)
-  addi s2, s2, screen_width
-  sw s4, 0(s2)
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-  sw s0, 12(s2)
-  sw s4, 16(s2)
-  
-  addi t6, zero, 0x77
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
+  sw s0, 0(t5)
+  sw s0, 16(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 16(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 8(t5)
+  sw s0, 16(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 8(t5)
+  sw s0, 16(t5)
+  add t5, t5, s9
+  sw s4, 0(t5)
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  sw s0, 12(t5)
+  sw s4, 16(t5)
   
   addi s1, s1, 24
-  jal zero, start
-  
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
-  
+  uret
+
+
   #write letter x to screen
   chr_X:
-  add s2, s1, zero
+  add t5, s1, zero
   
-  sw s0, 0(s2)
-  sw s0, 16(s2)
-  addi s2, s2, screen_width
-  sw s4, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 12(s2)
-  sw s4, 16(s2)
-  addi s2, s2, screen_width
-  sw s4, 4(s2)
-  sw s0, 8(s2)
-  sw s4, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-  sw s0, 12(s2)
-  sw s4, 16(s2) 
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s4, 4(s2)
-  sw s0, 16(s2)
-  
-  addi t6, zero, 0x78
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
+  sw s0, 0(t5)
+  sw s0, 16(t5)
+  add t5, t5, s9
+  sw s4, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 12(t5)
+  sw s4, 16(t5)
+  add t5, t5, s9
+  sw s4, 4(t5)
+  sw s0, 8(t5)
+  sw s4, 12(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  sw s0, 12(t5)
+  sw s4, 16(t5) 
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s4, 4(t5)
+  sw s0, 16(t5)
   
   addi s1, s1, 24
-  jal zero, start
-  
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
+  uret
   
   #write letter y to screen
   chr_Y:
-  add s2, s1, zero
+  add t5, s1, zero
   
-  sw s0, 0(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s4, 0(s2)
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 4(s2)
-  addi s2, s2, screen_width
-  sw s0, 4(s2)
-  
-  addi t6, zero, 0x79
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-  
+  sw s0, 0(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s4, 0(t5)
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+
   addi s1, s1, 16
-  jal zero, start
-  
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
-  
+  uret
+
   #write letter z to screen
   chr_Z:
-  add s2, s1, zero
+  add t5, s1, zero
   
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s4, 4(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  
-  addi t6, zero, 0x7a
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s4, 4(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
   
   addi s1, s1, 16
-  jal zero, start
-  
-  nop #free space for future edits 
-  nop
-  nop
-  nop
-  nop
-  nop
-  
+  uret
+
+
   #write space to screen
   chr_space:
-    addi t6, zero, 0x20 #load ascii value of this character 
-  sb t6, 0(sp) #pop character into stack
-  add t6, zero, zero #clear register
-  addi sp, sp, 4 #increment stack pointer
-  
   addi s1, s1, 16 #move cursor position right by 4 pixels 
-  jal zero, start #return
+  uret #return
   
   chr_newline:
   
   li t3, newline_stack_pointer
   lw t4, 0(t3) #load the adress for the newline stack
-  
-  addi t6, zero, 0x3b #load ascii value of this character 
-  sb t6, 0(sp) #pop character into stack
-  add t6, zero, zero #clear register
-  addi sp, sp, 4 #increment stack pointer
   
   sh s1, 0(t4) #push the bottom half of the s1 register into the newline stack (reordered away from the newline stack adress load to reduce pipeline stalls
   addi t5, t4, 2 #increment newline stack
@@ -1836,7 +1485,7 @@ input_check:
   #multiply the cursor height by the screen width to get the offset that is needed to go that many pixels down
   li t4, LCD_FB_START
   add s1, t3, t4 #add the offset to the value of the screen start and store it in the cursor position
-  jal zero, start #return
+  uret #return
   
   
   
@@ -1844,18 +1493,24 @@ input_check:
   
     #delete letter
     del:
-    li t6, 0x00000004  #0x80000001
+    li t6, 2#0x00000004  #0x80000001
     sub sp, sp, t6 #decrement stack pointer
-    lw t3, 0(sp) #load character from stack
+    lb t3, 0(sp) #load character from stack
     sb zero, 0(sp) #delete character from stack
+    sb zero, 1(sp)
     slli t3, t3, 2
     
-    auipc t0, 0
-    addi t0, t0, 0x10
+
+    
+  
+    
+    la t0, chr_del_enc
     add t3, t3, t0
+    
    jalr zero, t3, 0
     chr_del_enc:
-    jal zero, start #  ret
+    uret
+    uret
     ebreak
     ebreak
     ebreak
@@ -1864,9 +1519,8 @@ input_check:
     ebreak
     ebreak
     ebreak
-    ebreak
-    ebreak
-    ebreak
+    jal zero, del_newline
+    jal zero, del_newline
     ebreak
     ebreak
     ebreak
@@ -1888,15 +1542,15 @@ input_check:
     ebreak
     ebreak
     jal zero, dec_eight_wide #space
-    ebreak #! #sometimesjumps here
+    jal zero, dec_four_wide #!
     ebreak #"
     ebreak ##
     ebreak #$
     ebreak #%
     ebreak #&
     jal zero, dec_six_wide #' --apostraphe
-    ebreak #(
-    ebreak #)
+    jal zero, dec_six_wide #(
+    jal zero, dec_six_wide #)
     ebreak #*
     ebreak #+
     jal zero, dec_six_wide #,
@@ -1915,10 +1569,10 @@ input_check:
     jal zero, dec_eight_wide #9
     jal zero, dec_four_wide #:
     jal zero, del_newline #; --semicolon, use as newline
-    nop # <
-    nop # =
-    nop # >
-    nop # ?
+    jal zero, dec_eight_wide # <
+    jal zero, dec_ten_wide # =
+    jal zero, dec_eight_wide # >
+    ebreak # ?
     ebreak #@
     ebreak #A
     ebreak #B
@@ -1946,11 +1600,11 @@ input_check:
     ebreak #X
     ebreak #Y
     ebreak #Z
-    nop # [
-    nop # \
-    nop # ]
-    nop # ^
-    nop # _   #why does this have to be removed
+    jal zero, dec_six_wide # [
+    jal zero, dec_twelve_wide # \
+    jal zero, dec_six_wide # ]
+    jal zero, dec_eight_wide # ^
+    jal zero, dec_ten_wide # _
     ebreak#` --grave accent, use as backspace
     jal zero, dec_eight_wide #a
     jal zero, dec_eight_wide #b
@@ -1978,10 +1632,10 @@ input_check:
     jal zero, dec_twelve_wide#x
     jal zero, dec_eight_wide#y
     jal zero, dec_eight_wide#z
-    nop #{
-    nop #|
-    nop #}
-    ret #~
+    jal zero, dec_eight_wide #{
+    jal zero, dec_four_wide #|
+    jal zero, dec_eight_wide #}
+    ebreak #~
   
 
   dec_four_wide:
@@ -2018,94 +1672,94 @@ input_check:
 
 
 clr_two_at_chr_pointer:
-  add s2, s1, zero
+  add t5, s1, zero
   
-  sw zero, 0(s2)
-  sw zero, 4(s2)
-  addi s2, s2, screen_width
-  sw zero, 0(s2)
-  sw zero, 4(s2)
-  addi s2, s2, screen_width
-  sw zero, 0(s2)
-  sw zero, 4(s2)
-  addi s2, s2, screen_width
-  sw zero, 0(s2)
-  sw zero, 4(s2)
-  addi s2, s2, screen_width
-  sw zero, 0(s2)
-  sw zero, 4(s2)
-  jal zero, start
+  sw s8, 0(t5)
+  sw s8, 4(t5)
+  add t5, t5, s9
+  sw s8, 0(t5)
+  sw s8, 4(t5)
+  add t5, t5, s9
+  sw s8, 0(t5)
+  sw s8, 4(t5)
+  add t5, t5, s9
+  sw s8, 0(t5)
+  sw s8, 4(t5)
+  add t5, t5, s9
+  sw s8, 0(t5)
+  sw s8, 4(t5)
+  uret
 
 
   clr_one_at_chr_pointer_plus_2_px:
-  add s2, s1, zero
+  add t5, s1, zero
   
-  sw zero, 8(s2)
-  addi s2, s2, screen_width
-  sw zero, 8(s2)
-  addi s2, s2, screen_width
-  sw zero, 8(s2)
-  addi s2, s2, screen_width
-  sw zero, 8(s2)
-  addi s2, s2, screen_width
-  sw zero, 8(s2)
+  sw s8, 8(t5)
+  add t5, t5, s9
+  sw s8, 8(t5)
+  add t5, t5, s9
+  sw s8, 8(t5)
+  add t5, t5, s9
+  sw s8, 8(t5)
+  add t5, t5, s9
+  sw s8, 8(t5)
   
   jal zero, clr_two_at_chr_pointer
 
 clr_two_at_chr_pointer_plus_2_px:
-  add s2, s1, zero
+  add t5, s1, zero
   
-  sw zero, 8(s2)
-  sw zero, 12(s2)
-  addi s2, s2, screen_width
-  sw zero, 8(s2)
-  sw zero, 12(s2)
-  addi s2, s2, screen_width
-  sw zero, 8(s2)
-  sw zero, 12(s2)
-  addi s2, s2, screen_width
-  sw zero, 8(s2)
-  sw zero, 12(s2)
-  addi s2, s2, screen_width
-  sw zero, 8(s2)
-  sw zero, 12(s2)
+  sw s8, 8(t5)
+  sw s8, 12(t5)
+  add t5, t5, s9
+  sw s8, 8(t5)
+  sw s8, 12(t5)
+  add t5, t5, s9
+  sw s8, 8(t5)
+  sw s8, 12(t5)
+  add t5, t5, s9
+  sw s8, 8(t5)
+  sw s8, 12(t5)
+  add t5, t5, s9
+  sw s8, 8(t5)
+  sw s8, 12(t5)
   
   jal zero, clr_two_at_chr_pointer
   
   
   
   clr_one_at_chr_pointer_plus_4_px:
-  add s2, s1, zero
+  add t5, s1, zero
   
-  sw zero, 12(s2)
-  addi s2, s2, screen_width
-  sw zero, 12(s2)
-  addi s2, s2, screen_width
-  sw zero, 12(s2)
-  addi s2, s2, screen_width
-  sw zero, 12(s2)
-  addi s2, s2, screen_width
-  sw zero, 12(s2)
+  sw s8, 12(t5)
+  add t5, t5, s9
+  sw s8, 12(t5)
+  add t5, t5, s9
+  sw s8, 12(t5)
+  add t5, t5, s9
+  sw s8, 12(t5)
+  add t5, t5, s9
+  sw s8, 12(t5)
   
   jal zero, clr_two_at_chr_pointer_plus_2_px
 
   clr_two_at_chr_pointer_plus_4_px:
-  add s2, s1, zero
+  add t5, s1, zero
   
-  sw zero, 12(s2)
-  sw zero, 16(s2)
-  addi s2, s2, screen_width
-  sw zero, 12(s2)
-  sw zero, 16(s2)
-  addi s2, s2, screen_width
-  sw zero, 12(s2)
-  sw zero, 16(s2)
-  addi s2, s2, screen_width
-  sw zero, 12(s2)
-  sw zero, 16(s2)
-  addi s2, s2, screen_width
-  sw zero, 12(s2)
-  sw zero, 16(s2)
+  sw s8, 12(t5)
+  sw s8, 16(t5)
+  add t5, t5, s9
+  sw s8, 12(t5)
+  sw s8, 16(t5)
+  add t5, t5, s9
+  sw s8, 12(t5)
+  sw s8, 16(t5)
+  add t5, t5, s9
+  sw s8, 12(t5)
+  sw s8, 16(t5)
+  add t5, t5, s9
+  sw s8, 12(t5)
+  sw s8, 16(t5)
   
   jal zero, clr_two_at_chr_pointer_plus_2_px
   
@@ -2129,7 +1783,7 @@ clr_two_at_chr_pointer_plus_2_px:
   sh zero, 0(t4) #zero stack (reordered away from the newline stack adress load to reduce pipeline stalls
   sh t4, 0(t3)  #store newline stack pointer back
   
-  jal zero, start
+  uret
 
 
 
@@ -2143,633 +1797,1424 @@ clr_two_at_chr_pointer_plus_2_px:
 
 chr_apostraphe:
 
-  add s2, s1, zero
+  add t5, s1, zero
 
-  sw s0, 4(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s4, 4(s2)
-  
-  addi t6, zero, 0x27
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s4, 4(t5)
   
   addi s1, s1, 12
-  jal zero, start
+  uret
 
 
 chr_comma:
 
-  add s2, s1, zero
-  addi s2, s2, screen_width
-  addi s2, s2, screen_width
-  addi s2, s2, screen_width
-  sw s0, 4(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s4, 4(s2)
-  
-    addi t6, zero, 0x2c
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
+  add t5, s1, zero
+  add t5, t5, s9
+  add t5, t5, s9
+  add t5, t5, s9
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s4, 4(t5)
   
   addi s1, s1, 12
-  jal zero, start
+  uret
 
 chr_dash:
 
-  add s2, s1, zero
-  addi s2, s2, screen_width
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  sw s0, 12(s2)
+  add t5, s1, zero
+  add t5, t5, s9
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  sw s0, 12(t5)
+
+  addi s1, s1, 20
+  uret
   
-    addi t6, zero, 0x2d
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
+  chr_underscore:
+  add t5, s1, zero
+  add t5, t5, s9
+  add t5, t5, s9
+  add t5, t5, s9
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  sw s0, 12(t5)
+
+  addi s1, s1, 20
+  uret
   
-    addi s1, s1, 20
-  jal zero, start
+  
+  chr_equals:
+  add t5, s1, zero
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  sw s0, 12(t5)
+
+  addi s1, s1, 20
+  uret
 
 chr_period:
-
-  add s2, s1, zero
-  addi s2, s2, screen_width
-  addi s2, s2, screen_width
-  addi s2, s2, screen_width
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
   
-    addi t6, zero, 0x2e
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
+  li t0, screen_width
+  slli t0, t0, 2
+  add t5, s1, t0
+
+  sw s0, 0(t5)
   
   addi s1, s1, 8
-  jal zero, start
+  uret
 
 chr_slash: 
-  add s2, s1, zero
+  add t5, s1, zero
  
-  sw s0, 16(s2)
-  addi s2, s2, screen_width
-  sw s0, 12(s2)
-  sw s4, 16(s2)
-  addi s2, s2, screen_width
-  sw s0, 8(s2)
-  sw s4, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s4, 4(s2)
-  
-  addi t6, zero, 0x2f
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-  
+  sw s0, 16(t5)
+  add t5, t5, s9
+  sw s0, 12(t5)
+  sw s4, 16(t5)
+  add t5, t5, s9
+  sw s0, 8(t5)
+  sw s4, 12(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s4, 4(t5)
+
   addi s1, s1, 24
-  jal zero, start
+  uret
+
+chr_backslash: 
+  add t5, s1, zero
+ 
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s4, 0(t5)
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s4, 4(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s4, 8(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s4, 12(t5)
+  sw s0, 16(t5)
+
+  addi s1, s1, 24
+  uret
+
+chr_greater_than:
+  add t5, s1, zero
+ 
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s4, 4(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  add t5, t5, s9
+  sw s0, 8(t5)
 
 
+  addi s1, s1, 16
+  uret
+   
+  chr_less_than:
+  add t5, s1, zero
+ 
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s4, 0(t5)
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s4, 4(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s4, 0(t5)
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
 
-chr_0:
-  add s2, s1, zero
-
-  sw s4, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  sw s4, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s4, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  sw s4, 12(s2)
+  addi s1, s1, 16
+  uret
   
-  addi t6, zero, 0x6f
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
+  chr_or:
+  add t5, s1, zero
+
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+
+  addi s1, s1, 8
+  uret
+  
+  chr_xor:
+    add t5, s1, zero
+
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s7, 4(t5)
+  sw s0, 8(t5)
+
+  addi s1, s1, 16
+  uret
+  
+chr_0:
+  add t5, s1, zero
+
+  sw s4, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  sw s4, 12(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s4, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  sw s4, 12(t5)
   
   addi s1, s1, 20
-  jal zero, start
+  uret
 
 chr_1:
 
-  add s2, s1, zero
+  add t5, s1, zero
 
-  sw s4, 0(s2)
-  sw s0, 4(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  addi s2, s2, screen_width
-  sw s0, 4(s2)
-  addi s2, s2, screen_width
-  sw s0, 4(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  addi t6, zero, 0x31
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
+  sw s4, 0(t5)
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
   
   addi s1, s1, 16
-  jal zero, start
-  
-  
-  
-  
-  
+  uret
   
   chr_2:
 
-  add s2, s1, zero
+  add t5, s1, zero
 
-  sw s4, 0(s2)
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 4(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  
-  addi t6, zero, 0x32
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-  
+  sw s4, 0(t5)
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+
   addi s1, s1, 16
-  jal zero, start
-  
-  
-  
-  
+  uret 
   
   chr_3:
 
-  add s2, s1, zero
-
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-
+  add t5, s1, zero
   
-  addi t6, zero, 0x33
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-  
+
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  add t5, t5, s9
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  add t5, t5, s9
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+
   addi s1, s1, 16
-  jal zero, start
-  
-  
-  
+  uret
+ 
     chr_4:
 
-  add s2, s1, zero
+  add t5, s1, zero
 
-  sw s4, 8(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s4, 4(s2)
-  sw s0, 8(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 4(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 12(s2)
+  sw s4, 8(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s4, 4(t5)
+  sw s0, 8(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s0, 12(t5)
 
-  
-  addi t6, zero, 0x34
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 8
-  
-  addi s1, s1, 10
-  jal zero, start
-  
-  
-  
+  addi s1, s1, 20
+  uret
+
   chr_5:
 
-  add s2, s1, zero
+  add t5, s1, zero
 
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s4, 8(s2)
+  sw s0, 0(s1)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  add t5, t5, s9
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s4, 8(t5)
 
-  
-  addi t6, zero, 0x35
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-  
   addi s1, s1, 16
-  jal zero, start
-  
-  
-  
-  
+  uret
+
   chr_6:
 
-  add s2, s1, zero
+  add t5, s1, zero
   
-  sw s4, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s4, 0(s2)
-  sw s0, 4(s2)
-  sw s4, 8(s2)
+  sw s4, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s4, 0(t5)
+  sw s0, 4(t5)
+  sw s4, 8(t5)
 
-  
-  addi t6, zero, 0x36
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-  
   addi s1, s1, 16
-  jal zero, start
-  
-  
-  
-  
-  
+  uret
+
   chr_7:
 
-  add s2, s1, zero
+  add t5, s1, zero
 
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s4, 4(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 4(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s4, 4(s2)
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s4, 4(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s4, 4(t5)
 
-  
-  addi t6, zero, 0x37
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-  
   addi s1, s1, 16
-  jal zero, start
-  
+  uret
   
   chr_8:
-  add s2, s1, zero
+  add t5, s1, zero
   
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 12(s2)
-  addi s2, s2, screen_width
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-    
-  addi t6, zero, 0x38
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-    
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 12(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+
   addi s1, s1, 20
-  jal zero, start
+  uret
   
   chr_9:
-  add s2, s1, zero
+  add t5, s1, zero
   
-  sw s4, 0(s2)
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 8(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s4, 8(s2)
-   
-    
-  addi t6, zero, 0x39
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-    
+  sw s4, 0(t5)
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+
   addi s1, s1, 16
-  jal zero, start
+  uret
   
   chr_colon:
   
-  add s2, s1, zero
+  add t5, s1, zero
 
-  sw s0, 0(s2)
-  addi s2, s2, screen_width
-  addi s2, s2, screen_width
-  addi s2, s2, screen_width
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  
-  addi t6, zero, 0x3a
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
+  sw s0, 0(t5)
+  add t5, t5, s9 #replace with mul
+  add t5, t5, s9
+  add t5, t5, s9
+  add t5, t5, s9
+  sw s0, 0(t5)
+
+  addi s1, s1, 8
+  uret
+
+  chr_exclamation_mark:
+    add t5, s1, zero
+
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  add t5, t5, s9
+  sw s0, 0(t5)
   
   addi s1, s1, 8
-  jal zero, start
+  uret
   
+  chr_start_bracket:
+    add t5, s1, zero
   
+  sw s4, 0(t5)
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s4, 0(t5)
+  sw s0, 4(t5)
   
+  addi s1, s1, 12
+  uret
   
-    
+  chr_end_bracket:
+  add t5, s1, zero
+  
+  sw s0, 0(t5)
+  sw s4, 4(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s4, 4(t5)
+  
+  addi s1, s1, 12
+  uret
+
+  chr_start_square_bracket:
+  add t5, s1, zero
+  
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  
+  addi s1, s1, 12
+  uret
+  
+  chr_end_square_bracket:
+  add t5, s1, zero
+  
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  
+  addi s1, s1, 12
+  uret
+  
+  chr_start_curly_bracket:
+  add t5, s1, zero
+  
+  sw s4, 4(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s4, 4(t5)
+  sw s0, 8(t5)
+  
+  addi s1, s1, 16
+  uret
+  
+  chr_end_curly_bracket:
+  add t5, s1, zero
+  
+  sw s0, 0(t5)
+  sw s4, 4(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s4, 4(t5)
+  
+  addi s1, s1, 16
+  uret
   
   chr_big_A:
-  add s2, s1, zero #set pixel write adress to cursor position
+  add t5, s1, zero #set pixel write adress to cursor position
     
-  sw s7, 16(s2)
-  sw s4, 20(s2)
-  sw s4, 24(s2)
-  sw s4, 28(s2)
-  sw s7, 32(s2)
-  addi s2, s2, screen_width
-  
-  sw s4, 16(s2)
-  sw s0, 20(s2)
-  sw s0, 24(s2)
-  sw s0, 28(s2)
-  sw s4, 32(s2)
-  addi s2, s2, screen_width
-  
-  sw s0, 16(s2)
-  sw s0, 20(s2)
-  sw s4, 24(s2)
-  sw s0, 28(s2)
-  sw s0, 32(s2)
-  addi s2, s2, screen_width
-  
-  sw s0, 16(s2)
-  sw s0, 20(s2)
-  sw s7, 24(s2)
-  sw s0, 28(s2)
-  sw s0, 32(s2)
-  addi s2, s2, screen_width
-  
-  sw s7, 12(s2)
-  sw s0, 16(s2)
-  sw s4, 20(s2)
-  sw s7, 24(s2)
-  sw s4, 28(s2)
-  sw s0, 32(s2)
-  sw s7, 36(s2)
-  addi s2, s2, screen_width
-  
-  sw s4, 12(s2)
-  sw s0, 16(s2)
-  sw s7, 20(s2)
-  sw s7, 28(s2)
-  sw s0, 32(s2)
-  sw s4, 36(s2)
-  addi s2, s2, screen_width
-  
-  sw s0, 12(s2)
-  sw s0, 36(s2)
-  addi s2, s2, screen_width
-  
-  sw s0, 12(s2)
-  sw s0, 16(s2)
-  sw s0, 20(s2)
-  sw s0, 24(s2)
-  sw s0, 28(s2)
-  sw s0, 32(s2)
-  sw s0, 36(s2)
-  addi s2, s2, screen_width
-  
-  sw s7, 8(s2)
-  sw s0, 12(s2)
-  sw s4, 16(s2)
-  sw s4, 32(s2)
-  sw s0, 36(s2)
-  sw s7, 40(s2)
-  addi s2, s2, screen_width
-  
-  sw s4, 8(s2)
-  sw s0, 12(s2)
-  sw s7, 16(s2)
-  sw s7, 32(s2)
-  sw s0, 36(s2)
-  sw s4, 40(s2)
-  addi s2, s2, screen_width
-  
-  sw s0, 8(s2)
-  sw s4, 12(s2)
-  sw s4, 36(s2)
-  sw s0, 40(s2)
-  
-  addi t6, zero, 0x61 
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-  
-  
-  
-  
+  sw s7, 16(t5)
+  sw s4, 20(t5)
+  sw s4, 24(t5)
+  sw s4, 28(t5)
+  sw s7, 32(t5)
+  add t5, t5, s9
+  sw s4, 16(t5)
+  sw s0, 20(t5)
+  sw s0, 24(t5)
+  sw s0, 28(t5)
+  sw s4, 32(t5)
+  add t5, t5, s9
+  sw s0, 16(t5)
+  sw s0, 20(t5)
+  sw s4, 24(t5)
+  sw s0, 28(t5)
+  sw s0, 32(t5)
+  add t5, t5, s9
+  sw s0, 16(t5)
+  sw s4, 20(t5)
+  sw s4, 28(t5)
+  sw s0, 32(t5)
+  add t5, t5, s9
+  sw s7, 12(t5)
+  sw s0, 16(t5)
+  sw s7, 20(t5)
+  sw s7, 28(t5)
+  sw s0, 32(t5)
+  sw s7, 36(t5)
+  add t5, t5, s9
+  sw s4, 12(t5)
+  sw s0, 16(t5)
+  sw s0, 32(t5)
+  sw s4, 36(t5)
+  add t5, t5, s9
+  sw s0, 12(t5)
+  sw s4, 16(t5)
+  sw s4, 32(t5)
+  sw s0, 36(t5)
+  add t5, t5, s9
+  sw s0, 12(t5)
+  sw s0, 16(t5)
+  sw s0, 20(t5)
+  sw s0, 24(t5)
+  sw s0, 28(t5)
+  sw s0, 32(t5)
+  sw s0, 36(t5)
+  add t5, t5, s9
+  sw s7, 8(t5)
+  sw s0, 12(t5)
+  sw s4, 16(t5)
+  sw s4, 32(t5)
+  sw s0, 36(t5)
+  sw s7, 40(t5)
+  add t5, t5, s9
+  sw s4, 8(t5)
+  sw s0, 12(t5)
+  sw s7, 16(t5)
+  sw s7, 32(t5)
+  sw s0, 36(t5)
+  sw s4, 40(t5)
+  add t5, t5, s9
+  sw s0, 8(t5)
+  sw s4, 12(t5)
+  sw s4, 36(t5)
+  sw s0, 40(t5)
+
   addi s1, s1, 48
-  jal zero, start
+  uret
   
   
   
   chr_big_B:
-  add s2, s1, zero #set pixel write adress to cursor position
-  
+  add t5, s1, zero
 
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  sw s0, 12(s2)
-  sw s4, 16(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s7, 4(s2)
-  sw s4, 8(s2)
-  sw s0, 12(s2)
-  sw s0, 16(s2)
-  sw s7, 20(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s7, 4(s2)
-  sw s4, 12(s2)
-  sw s0, 16(s2)
-  sw s7, 20(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s7, 4(s2)
-  sw s0, 16(s2)
-  sw s7, 20(s2)
-  
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s7, 4(s2)
-  sw s4, 8(s2)
-  sw s0, 12(s2)
-  sw s0, 16(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  sw s0, 12(s2)
-  sw s4, 16(s2)
-  
-  
- addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s7, 4(s2)
-  sw s7, 8(s2)
-  sw s4, 12(s2)
-  sw s0, 16(s2)
-  sw s7, 20(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s7, 4(s2)
-  sw s0, 16(s2)
-  sw s4, 20(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s7, 4(s2)
-  sw s0, 16(s2)
-  sw s4, 20(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s7, 4(s2)
-  sw s4, 12(s2)
-  sw s0, 16(s2)
-  sw s7, 20(s2)
-  addi s2, s2, screen_width
-  sw s0, 0(s2)
-  sw s0, 4(s2)
-  sw s0, 8(s2)
-  sw s0, 12(s2)
-  sh s4, 16(s2)
-  
-  addi t6, zero, 0x62
-  sb t6, 0(sp)
-  add t6, zero, zero
-  addi sp, sp, 4
-  
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  sw s0, 12(t5)
+  sw s4, 16(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s7, 4(t5)
+  sw s4, 8(t5)
+  sw s0, 12(t5)
+  sw s0, 16(t5)
+  sw s7, 20(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s7, 4(t5)
+  sw s4, 12(t5)
+  sw s0, 16(t5)
+  sw s7, 20(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s7, 4(t5)
+  sw s0, 16(t5)
+  sw s7, 20(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s7, 4(t5)
+  sw s4, 8(t5)
+  sw s0, 12(t5)
+  sw s0, 16(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  sw s0, 12(t5)
+  sw s4, 16(t5)
+ add t5, t5, s9
+  sw s0, 0(t5)
+  sw s7, 4(t5)
+  sw s7, 8(t5)
+  sw s4, 12(t5)
+  sw s0, 16(t5)
+  sw s7, 20(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s7, 4(t5)
+  sw s0, 16(t5)
+  sw s4, 20(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s7, 4(t5)
+  sw s0, 16(t5)
+  sw s4, 20(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s7, 4(t5)
+  sw s4, 12(t5)
+  sw s0, 16(t5)
+  sw s7, 20(t5)
+  add t5, t5, s9
+  sw s0, 0(t5)
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  sw s0, 12(t5)
+  sh s4, 16(t5)
+
   addi s1, s1, 32
-  jal zero, start
+  uret
   
   
+  
+    chr_big_C:
+  add t5, s1, zero
+  
+  
+  #sw s7, 20(t5)
+  #sw s7, 24(t5)
+  #sw s7, 28(t5)
+  #sw s7, 32(t5)
+  #add t5, t5, s9
+  sw s7, 12(t5)
+  sw s4, 16(t5)
+  sw s0, 20(t5)
+  sw s0, 24(t5)
+  sw s0, 28(t5)
+  sw s0, 32(t5)
+  add t5, t5, s9
+  sw s4, 8(t5)
+  sw s0, 12(t5)
+  sw s0, 16(t5)
+  sw s0, 20(t5)
+  sw s4, 24(t5)
+  add t5, t5, s9
+  sw s4, 4(t5)
+  sw s0, 8(t5)
+  sw s0, 12(t5)
+  sw s4, 16(t5)
+  sw s7, 20(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  sw s7, 12(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  sw s4, 8(t5)
+  add t5, t5, s9
+  sw s0, 4(t5)
+  sw s0, 8(t5)
+  sw s7, 12(t5)
+  add t5, t5, s9
+  sw s4, 4(t5)
+  sw s0, 8(t5)
+  sw s0, 12(t5)
+  sw s4, 16(t5)
+  sw s7, 20(t5)
+  add t5, t5, s9
+  sw s4, 8(t5)
+  sw s0, 12(t5)
+  sw s0, 16(t5)
+  sw s0, 20(t5)
+  sw s4, 24(t5)
+  add t5, t5, s9
+  sw s7, 12(t5)
+  sw s4, 16(t5)
+  sw s0, 20(t5)
+  sw s0, 24(t5)
+  sw s0, 28(t5)
+  sw s0, 32(t5)
+
+  addi s1, s1, 40
+  uret
+  
+  
+  
+  
+  settings_edit:
+  #edit screen resolution
+  li a7, 51
+  la a0, screen_width_req
+  li a2, 4
+  ecall
+  li a7, 51 #does this do anything?
+  bltz a1, skip_editing_scrn_width
+  mv t0, a0
+  
+  li a7, 51
+  la a0, unit_width_req
+  ecall
+  bltz a1, skip_editing_scrn_width
+  
+  li t1, screen_width2
+  slli t1, t0, 2
+  div s9, t1, a0
+  j edit_BG_colour 
+  
+  skip_editing_scrn_width:
+  li a7, 4
+  la a0, skip_editing_setting
+  ecall
+  
+  
+  
+  
+  edit_BG_colour:
+  li a7, 51
+  la a0, screen_height_req
+  li a2, 4
+  ecall
+  
+  bltz a1, skip_BG_colour_change
+  mv t0, a0
+  
+  li a7, 51
+  la a0, unit_height_req
+  ecall
+  
+  bltz a1, skip_editing_scrn_width
+  
+  div t1, t0, a0 #number of rows to draw
+  mul t1, t1, s9 #multiplied by the number of collums
+  
+  #addi t1, t1, -4 #don't recolour the bottom right pight pixel(for testing)
+  
+  li t4, LCD_FB_START
+  
+  #get new BG colour
+  
+  li a7, 54
+  la a0, get_new_bg_colour
+  li a1, 0x100401a0
+  add t0, a1, zero #save the address of the string
+  li a2, 7
+  ecall
+  bltz a1, skip_BG_colour_change
+  
+
+  
+  #cvt ascii code to colour
+  
+  lb a0, 0(t0) #load first character
+  
+  li a1, 79 #1001111
+  and a0, a1, a0 # cvt capital letters to lowercase
+
+  li a1, 64 #1000000 
+  and a1, a1, a0
+
+  bgtz a1, ascii_letter_to_binary_0
+  
+  addi a7, a0, 0
+  j ascii_was_not_letter_0
+  
+  ascii_letter_to_binary_0:
+  not a1, a1
+  and a0, a1, a0 #remove that 1
+  
+  addi a7, a0, 9
+  ascii_was_not_letter_0:
+  #repeat for the rest of the numbers
+  slli a7, a7, 20
 
 
+  lb a0, 1(t0) #load second character
+  
+  li a1, 79 #1001111
+  and a0, a1, a0 # cvt capital letters to lowercase
+  li a1, 64 #1000000 
+  and a1, a1, a0
+  bgtz a1, ascii_letter_to_binary_1
+  
+  j ascii_was_not_letter_1
+  
+  ascii_letter_to_binary_1:
+  not a1, a1
+  and a0, a1, a0 #remove that 1
+  addi a0, a0, 9
+
+  ascii_was_not_letter_1:
+  
+  slli a0, a0, 16
+  or a7, a0, a7
+  
+  
+  
+  
+  #------------
+   lb a0, 2(t0) #load third character
+  
+  li a1, 79 #1001111
+  and a0, a1, a0 # cvt capital letters to lowercase
+  li a1, 64 #1000000 
+  and a1, a1, a0
+  bgtz a1, ascii_letter_to_binary_2
+  
+  j ascii_was_not_letter_2
+  
+  ascii_letter_to_binary_2:
+  not a1, a1
+  and a0, a1, a0 #remove that 1
+  addi a0, a0, 9
+
+  ascii_was_not_letter_2:
+  
+  slli a0, a0, 12
+  or a7, a0, a7
+  
+ 
+  #------------
+   lb a0, 3(t0) #load fourth character
+  
+  li a1, 79 #1001111
+  and a0, a1, a0 # cvt capital letters to lowercase
+  li a1, 64 #1000000 
+  and a1, a1, a0
+  bgtz a1, ascii_letter_to_binary_3
+  
+  j ascii_was_not_letter_3
+  
+  ascii_letter_to_binary_3:
+  not a1, a1
+  and a0, a1, a0 #remove that 1
+  addi a0, a0, 9
+
+  ascii_was_not_letter_3:
+  
+  slli a0, a0, 8
+  or a7, a0, a7
+  
+    #------------
+   lb a0, 4(t0) #load fifth character
+  
+  li a1, 79 #1001111
+  and a0, a1, a0 # cvt capital letters to lowercase
+  li a1, 64 #1000000 
+  and a1, a1, a0
+  bgtz a1, ascii_letter_to_binary_4
+  
+  j ascii_was_not_letter_4
+  
+  ascii_letter_to_binary_4:
+  not a1, a1
+  and a0, a1, a0 #remove that 1
+  addi a0, a0, 9
+
+  ascii_was_not_letter_4:
+  
+  slli a0, a0, 4
+  or a7, a0, a7
+  
+  
+      #------------
+   lb a0, 5(t0) #load sixth character
+  
+  li a1, 79 #1001111
+  and a0, a1, a0 # cvt capital letters to lowercase
+  li a1, 64 #1000000 
+  and a1, a1, a0
+  bgtz a1, ascii_letter_to_binary_5
+  
+  j ascii_was_not_letter_5
+  
+  ascii_letter_to_binary_5:
+  not a1, a1
+  and a0, a1, a0 #remove that 1
+  addi a0, a0, 9
+
+  ascii_was_not_letter_5:
+  
+  or s8, a0, a7
+  
+  #new BG colour is stored in t6
+
+  la a0, set_new_bg_colour
+  li a7, 4
+  ecall
+  
+  li a7, 34
+  addi a0, s8, 0
+  ecall
+  
+  li a7, 11
+  li a0, 0x0a
+  ecall
+
+  start_BG_change_loop:
+  sw s8, 0(t4)
+  addi t4, t4, 4 #increment the pointer
+  addi t1, t1, -4 #dec the counter
+  bgtz t1, start_BG_change_loop
+  
+  j edit_font_colour
+  
+  
+  skip_BG_colour_change:
+  li a7, 4
+  la a0, skip_editing_setting
+
+  
+  #todo: use this method of getting colours to change font colour
+  edit_font_colour:
+  
+  
+  li a7, 54
+  la a0, req_new_font_colour
+  li a1, 0x100401a0
+  add t0, a1, zero #save the address of the string
+  li a2, 7
+  ecall
+  bltz a1, skip_font_colour_change
+
+    lb a0, 0(t0) #load first character
+  
+  li a1, 79 #1001111
+  and a0, a1, a0 # cvt capital letters to lowercase
+
+  li a1, 64 #1000000 
+  and a1, a1, a0
+
+  bgtz a1, ascii_letter_to_binary_01
+  
+  addi a7, a0, 0
+  j ascii_was_not_letter_01
+  
+  ascii_letter_to_binary_01:
+  not a1, a1
+  and a0, a1, a0 #remove that 1
+  
+  addi a7, a0, 9
+  ascii_was_not_letter_01:
+  #repeat for the rest of the numbers
+  slli a7, a7, 20
 
 
+  lb a0, 1(t0) #load second character
+  
+  li a1, 79 #1001111
+  and a0, a1, a0 # cvt capital letters to lowercase
+  li a1, 64 #1000000 
+  and a1, a1, a0
+  bgtz a1, ascii_letter_to_binary_11
+  
+  j ascii_was_not_letter_11
+  
+  ascii_letter_to_binary_11:
+  not a1, a1
+  and a0, a1, a0 #remove that 1
+  addi a0, a0, 9
 
+  ascii_was_not_letter_11:
+  
+  slli a0, a0, 16
+  or a7, a0, a7
+  
+  
+  
+  
+  #------------
+   lb a0, 2(t0) #load third character
+  
+  li a1, 79 #1001111
+  and a0, a1, a0 # cvt capital letters to lowercase
+  li a1, 64 #1000000 
+  and a1, a1, a0
+  bgtz a1, ascii_letter_to_binary_21
+  
+  j ascii_was_not_letter_21
+  
+  ascii_letter_to_binary_21:
+  not a1, a1
+  and a0, a1, a0 #remove that 1
+  addi a0, a0, 9
 
+  ascii_was_not_letter_21:
+  
+  slli a0, a0, 12
+  or a7, a0, a7
+  
+ 
+  #------------
+   lb a0, 3(t0) #load fourth character
+  
+  li a1, 79 #1001111
+  and a0, a1, a0 # cvt capital letters to lowercase
+  li a1, 64 #1000000 
+  and a1, a1, a0
+  bgtz a1, ascii_letter_to_binary_31
+  
+  j ascii_was_not_letter_31
+  
+  ascii_letter_to_binary_31:
+  not a1, a1
+  and a0, a1, a0 #remove that 1
+  addi a0, a0, 9
+
+  ascii_was_not_letter_31:
+  
+  slli a0, a0, 8
+  or a7, a0, a7
+  
+    #------------
+   lb a0, 4(t0) #load fifth character
+  
+  li a1, 79 #1001111
+  and a0, a1, a0 # cvt capital letters to lowercase
+  li a1, 64 #1000000 
+  and a1, a1, a0
+  bgtz a1, ascii_letter_to_binary_41
+  
+  j ascii_was_not_letter_41
+  
+  ascii_letter_to_binary_41:
+  not a1, a1
+  and a0, a1, a0 #remove that 1
+  addi a0, a0, 9
+
+  ascii_was_not_letter_41:
+  
+  slli a0, a0, 4
+  or a7, a0, a7
+  
+  
+      #------------
+   lb a0, 5(t0) #load sixth character
+  
+  li a1, 79 #1001111
+  and a0, a1, a0 # cvt capital letters to lowercase
+  li a1, 64 #1000000 
+  and a1, a1, a0
+  bgtz a1, ascii_letter_to_binary_51
+  
+  j ascii_was_not_letter_51
+  
+  ascii_letter_to_binary_51:
+  not a1, a1
+  and a0, a1, a0 #remove that 1
+  addi a0, a0, 9
+
+  ascii_was_not_letter_51:
+  
+  or s0, a0, a7
+  
+  #new font colour is stored in s0
+
+  la a0, set_new_font_colour
+  li a7, 4
+  ecall
+  
+  li a7, 34
+  addi a0, s0, 0
+  ecall
+  
+  li a7, 11
+  li a0, 0x0a
+  ecall
+  
+  
+  #todo: recalculate the antiailiasing colours
+  
+  li a0, 0xff
+  li a3, 2
+  and a1, a0, s0
+  and a2, a0, s8
+  
+  add a7, a1, a2
+  div a7, a7, a3
+  
+  and a7, a7, a0 #idk if this is needed but it could stop some edge cases
+  
+  slli a0, a0, 8
+  
+  ebreak
+  
+  and a1, a0, s0
+  and a2, a0, s8
+  
+  srli a1, a1, 8
+  srli a2, a2, 8
+  
+  add a6, a1, a2
+  div a6, a7, a3
+  
+  slli a6, a6, 8
+
+  
+  and a6, a6, a0 #idk if this is needed but it could stop some edge cases
+  or a7, a6, a7
+  
+  slli a0, a0, 8
+  
+  and a1, a0, s0
+  and a2, a0, s8
+  
+  srli a1, a1, 16
+  srli a2, a2, 16
+  
+  add a6, a1, a2
+  div a6, a7, a3
+  
+  slli a6, a6, 16
+  
+  and a6, a6, a0 #idk if this is needed but it could stop some edge cases
+  or s4, a6, a7 #set antiailiasing colour 1
+
+  
+  skip_font_colour_change:
+  li a7, 4
+  la a0, skip_editing_setting
+
+#todo: recalculate the antiailiasing colours 
+#todo: add option to reprint all characters
+  
+  uret
+  
+store_to_file:
+
+ # ebreak
+    li a7, 50
+    la a0, f_ask_loc
+    ecall
+    beqz a0, save_to_desktop
+    addi t0, zero, 1
+    beq t0, a0, save_to_documents
+    
+    li a7, 4 #if the user cancels, stop saving file
+    la a0, f_save_cancelled
+    li a1, 4
+    ecall
+    uret
+    
+    save_to_documents:
+    li t3, 0x100400e0
+    la t0, doc
+    lb t1, 0(t0)
+    sb t1, 0(t3)
+    lb t1, 1(t0)
+    sb t1, 1(t3)
+    lb t1, 2(t0)
+    sb t1, 2(t3)
+    lb t1, 3(t0)
+    sb t1, 3(t3)
+    lb t1, 4(t0)
+    sb t1, 4(t3)
+    lb t1, 5(t0)
+    sb t1, 5(t3)
+    lb t1, 6(t0)
+    sb t1, 6(t3)
+    lb t1, 7(t0)
+    sb t1, 7(t3)
+    lb t1, 8(t0)
+    sb t1, 8(t3)
+    lb t1, 9(t0)
+    sb t1, 9(t3)
+    addi t3, t3, 10
+    j get_filename
+    save_to_desktop:
+    li t3, 0x100400e0
+
+    la t0, desk
+    lb t1, 0(t0)
+    sb t1, 0(t3)
+    lb t1, 1(t0)
+    sb t1, 1(t3)
+    lb t1, 2(t0)
+    sb t1, 2(t3)
+    lb t1, 3(t0)
+    sb t1, 3(t3)
+    lb t1, 4(t0)
+    sb t1, 4(t3)
+    lb t1, 5(t0)
+    sb t1, 5(t3)
+    lb t1, 6(t0)
+    sb t1, 6(t3)
+    lb t1, 7(t0)
+    sb t1, 7(t3)
+    addi t3, t3, 8
+    
+    get_filename:
+    li a7, 54 #get the file name and address
+    la a0, fnam
+    mv a1, t3
+    li a2, 128
+    ecall
+    beqz a1, file_location_print
+    
+    li a7, 4
+    la a0, f_save_cancelled #if the user cancels or gives a bad value, stop saving file #UNTESTED
+    li a1, 4
+    ecall
+    uret
+    
+    
+    file_location_print:
+    li a7, 4 #print "saving file to"
+    la a0, save_loc_notify
+    ecall
+    
+    li a7, 4 #print the file location
+    li a0,  0x100400e0
+    ecall
+    
+    li a7, 11 #print newline
+    li a0, 0x0a
+    #ecall
+    
+    
+     #test if file exists CURRENTLY NOT WORKING
+     
+#  li   a7, 1024     # system call for open file
+#  li a0, 0x100400e0 # output file name
+#  li   a1, 0#9        # Open for writing (flags are 0: read, 1: write)
+#  ecall             # open a file (file descriptor returned in a0)
+
+  
+#  li a3, -1
+#  beq a3, a0, file_write
+    
+    
+#    li a7, 50
+#    la a0, f_ask_file_overwrite
+#    ecall
+#    beqz a0, file_write
+#    li a7, 55 #if the user says to not overwrite or cancels, stop saving file
+#    la a0, f_save_cancelled
+#    li a1, 4
+#    ecall
+#    uret
+    
+  
+  
+   
+  
+    file_write:
+  andi a3, zero, 0
+  li   a7, 1024     # system call for open file
+  li a0, 0x100400e0 # output file name
+  li   a1, 1        # Open for writing (flags are 0: read, 1: write)
+  ecall             # open a file (file descriptor returned in a0)
+  mv   t1, a0       # save the file descriptor
+  
+  li a3, -1
+  bne a3, t1, file_length_calc
+  
+    li a7, 55 #if the OS fails to open file, notify user and cancel file saving
+    la a0, f_write_failed
+    li a1, 4
+    ecall
+    uret
+  
+  
+  
+  file_length_calc:
+  li   t4, 0x7fffeffc  #t4 is the address of buffer from which to write
+  sub  t0, sp, t4 #t0 is the number of characters to write
+  addi  t0, t0, -1 #subtracting 1 to not save the hashtag that calls for the file to be saved
+  
+  li t5, 16
+  
+  li   a7, 64       # system call for write to file
+  mv   a0, t1       # file descriptor
+  mv   a1, t4   # address of buffer from which to write
+  mv   a2, t0       # hardcoded buffer length
+  ecall             # write to file
+  
+  uret
+  
+  
     ebreak # stop continuous execution, request developer interaction
-fmax.s ft0, ft1, ft2
+
+
+
+
+ascii_to_colour_code:
+#TODO
+uret
+
+
+
+
+
+
+
+
+
 
 
 .data
-error_1: .asciz  "ERROR: stack overflow"   # store zero terminated ASCII text
-error_2: .asciz  "ERROR: cursor overflow"   # store zero terminated ASCII text
-colour_warning_text_1: .asciz "WARNING:you have not chosen a text colour" # store zero terminated ASCII text
-colour_warning_text_2: .asciz  "WARNING: text colour may be too dark to see"   # store zero terminated ASCII text 
+error_1: 
+.asciz     "ERROR: stack overflow"   # store zero terminated ASCII text
+error_2: 
+.asciz  "ERROR: cursor overflow"   # store zero terminated ASCII text
+colour_warning_text_1: 
+.asciz "WARNING:you have not chosen a text colour" # store zero terminated ASCII text
+colour_warning_text_2: 
+.asciz  "WARNING: text colour may be too dark to see"   # store zero terminated ASCII text 
 
+fout: .asciz "Desktop/testout.txt"      # filename for output
 
+f_ask_loc: .string "would you like to save the file to the desktop?"
+fnam: .string   "please write the location you want this file to be written to"   # store zero terminated ASCII text
+f_save_cancelled: .ascii "file was not saved"
+.byte 0x0a #manually adding newline character
+.byte 00
+f_save_failed: .string "failed to create file, cancelling"
+f_write_failed: .string "failed to write to file, cancelling"
+doc: .ascii "Documents/"
+desk: .ascii "Desktop/"
+save_loc_notify: .asciz "saving file to: "
+f_ask_file_overwrite: .asciz "file already exists, do you want to append to it?"
+screen_width_req: .asciz "what is the display width in pixels?"
+unit_width_req: .asciz "what is the unit width in pixels?"
+skip_editing_setting: .ascii "setting was unchanged"
+.byte 0x0a
+.byte 00
 
+screen_height_req: .ascii "what is the display height in pixels?"
+.byte 0x0a
+req_for_bg_change_0: .asciz "(required for background change)"
+unit_height_req: .ascii "what is the unit height in pixels?"
+.byte 0x0a
+req_for_bg_change_1: .asciz "(required for background change)"
+get_new_bg_colour: .asciz "new background colour"
 
-
-
-# if whole source compile is OK the switch to core tab
-#pragma qtrvsim tab core
-
-# The sample can be compiled by full-featured riscv64-unknown-elf GNU tool-chain
-# for RV32IMA use
-# riscv64-unknown-elf-gcc -c -march=rv64ima -mabi=lp64 template.S
-# riscv64-unknown-elf-gcc -march=rv64ima -mabi=lp64 -nostartfiles -nostdlib template.o
-# for RV64IMA use
-# riscv64-unknown-elf-gcc -c -march=rv32ima -mabi=ilp32 template.S
-# riscv64-unknown-elf-gcc -march=rv32ima -mabi=ilp32 -nostartfiles -nostdlib template.o
-# add "-o template" to change default "a.out" output file name
+set_new_bg_colour: .asciz "setting background colour to "
+req_new_font_colour: .asciz "new font colour"
+set_new_font_colour: .asciz "setting font colour to "
